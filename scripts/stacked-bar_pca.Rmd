@@ -17,8 +17,8 @@ library(dplyr)
 # Load data
 
 ```{r}
-seqtab <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/seqtabNoCf.RDS")
-tax <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/taxf.RDS")
+seqtab <- readRDS("../data/seqtabNoCf.RDS")
+tax <- readRDS("../data/taxf.RDS")
 ```
 
 # Manipulate 
@@ -94,4 +94,19 @@ famsum %>%
   geom_histogram() +
   theme_bw() +
   ggsave("../figures/histogram_family-counts_remlarge.png")
+```
+
+# Stacked bar, DNA with ordering
+
+```{r}
+taxcounts.phyl %>%
+  mutate(seqtype = ifelse(grepl("-C", sample), "RNA", "DNA")) %>%
+  filter(seqtype == "DNA") %>%
+  ggplot(aes(x = sample, y = count, fill = Phylum)) +
+  geom_col(position = "fill") +
+  facet_wrap(vars(seqtype), scales = "free_x") +
+  labs(x = "", y = "") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust=1, size = 8, vjust = .5)) +
+  ggsave("../figures/stacked-bar_phyla.png", width = 10)
 ```

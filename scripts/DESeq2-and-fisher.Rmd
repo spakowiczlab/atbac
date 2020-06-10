@@ -16,8 +16,8 @@ library(broom)
 ```
 
 ```{r}
-seqtab <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/seqtabNoCf.RDS")
-tax <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/taxf.RDS")
+seqtab <- readRDS("../data/seqtabNoCf.RDS")
+tax <- readRDS("../data/taxf.RDS")
 
 bmi.stat <- read.csv("../data/samples_obesity-status.csv") %>%
   select(-sample.name) %>%
