@@ -1,0 +1,250 @@
+---
+title: "Filtering counts and testing layers"
+author: "Rebecca Hoyd"
+date: "January 21, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(ggfortify)
+library(tidyr)
+library(dplyr)
+library(tibble)
+library(ggdendro)
+# library(ggtree)
+library(phylogram)
+library(DESeq2)
+```
+
+```{r}
+seqtab <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/seqtabNoCf.RDS")
+tax <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/taxf.RDS")
+
+bmi.stat <- read.csv("../data/samples_obesity-status.csv") %>%
+  select(-sample.name) %>%
+  mutate(label = paste0(sequence.id, "_int"))
+```
+
+
+# RNA analysis
+
+```{r}
+getnegs <- seqtab %>%
+  filter(grepl("NEG-C", sample))
+
+getnegs <- colSums(getnegs[,-1])
+getnegs <- names(subset(getnegs, getnegs > 0))
+```
+
+```{r}
+seqtab.ncon.r <- seqtab %>%
+  filter(!grepl("NEG", sample)) %>%
+  filter(grepl("-C", sample)) %>%
+  select(-getnegs)
+
+# tax.ncon.r <- tax %>%
+#   filter(!Sequence %in% getnegs)
+```
+
+```{r}
+seqtab.labs.r <- seqtab.ncon.r %>%
+  gather(-sample, key = 'Sequence', value = "counts") %>%
+  left_join(tax) %>%
+  separate(sample, into = c("patient", "samptag"), by = "-") %>%
+  mutate(layer = ifelse(grepl("A", samptag), "aq", "int"),
+         samptag = paste0(patient, "_", layer)) %>%
+  select(-layer, -patient)
+
+
+```
+
+```{r}
+forclust.r <-seqtab.labs.r %>%
+  select(samptag, Sequence, counts) %>%
+  filter(grepl("_int", samptag)) %>%
+  spread(key = "Sequence", value = "counts") %>%
+  column_to_rownames(var = "samptag")
+
+sampclust.r <- dendro_data(as.dendrogram(hclust(dist(forclust.r))))
+sampclust.r$labels <- sampclust.r$labels %>%
+  left_join(bmi.stat)
+
+ggplot(sampclust.r$segments) + 
+  geom_segment(aes(x = x, y = y, xend = xend, yend = yend))+
+  geom_text(data = sampclust.r$labels, aes(x, y, label = sequence.id, color = BMI),
+            hjust = 1, angle = 90, size = 3) +
+  scale_color_manual(breaks = c("Lean", "Obese"), values = c("black", "red")) +
+  labs(x = "", y = "") +
+  theme_void() +
+  ggsave("../figures/cluster-int-RNA.png", height = 8)
+  
+```
+# DNA analysis
+
+```{r}
+getnegs <- seqtab %>%
+  filter(grepl("NEG$", sample))
+
+getnegs <- colSums(getnegs[,-1])
+getnegs <- names(subset(getnegs, getnegs > 0))
+```
+
+```{r}
+seqtab.ncon.d <- seqtab %>%
+  filter(!grepl("NEG", sample)) %>%
+  filter(!grepl("-C", sample)) %>%
+  select(-getnegs)
+
+# tax.ncon.r <- tax %>%
+#   filter(!Sequence %in% getnegs)
+```
+
+```{r}
+seqtab.labs.d <- seqtab.ncon.d %>%
+  gather(-sample, key = 'Sequence', value = "counts") %>%
+  left_join(tax) %>%
+  separate(sample, into = c("patient", "samptag"), by = "-") %>%
+  mutate(layer = ifelse(grepl("A", samptag), "aq", "int"),
+         samptag = paste0(patient, "_", layer)) %>%
+  select(-layer, -patient)
+
+
+```
+
+```{r}
+forclust.d <-seqtab.labs.d %>%
+  select(samptag, Sequence, counts) %>%
+  filter(grepl("_int", samptag)) %>%
+  spread(key = "Sequence", value = "counts") %>%
+  column_to_rownames(var = "samptag")
+
+sampclust.d <- dendro_data(as.dendrogram(hclust(dist(forclust.d))))
+sampclust.d$labels <- sampclust.d$labels %>%
+  left_join(bmi.stat)
+
+ggplot(sampclust.d$segments) + 
+  geom_segment(aes(x = x, y = y, xend = xend, yend = yend))+
+  geom_text(data = sampclust.d$labels, aes(x, y, label = sequence.id, color = BMI),
+            hjust = 1, angle = 90, size = 3) +
+  scale_color_manual(breaks = c("Lean", "Obese"), values = c("black", "red")) +
+  labs(x = "", y = "") +
+  theme_void() +
+  ggsave("../figures/cluster-int-DNA.png", height = 8)
+```
+
+# PCA
+
+```{r}
+obes.met <- bmi.stat %>%
+  filter(!grepl("NEG", label))
+```
+
+## RNA
+```{r}
+pr.r <- prcomp(forclust.r)
+
+autoplot(pr.r, data = obes.met, colour = "BMI", frame = T, frame.type = "norm") +
+  scale_color_manual(aesthetics = c("colour", "fill"),
+                     breaks = c("Lean", "Obese"), values = c("black", "red")) +
+  theme_bw() +
+  ggsave("../figures/pca-RNA.png")
+```
+
+```{r RNA try removing outliers}
+pca.ggdat.r <- pr.r$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "label") %>%
+  select(label, PC1, PC2) %>%
+  left_join(obes.met)
+
+pca.ggdat.r %>%
+  filter(PC1 > -200 & PC1 < 75) %>%
+  ggplot(aes(x = PC1, y = PC2, color = BMI, fill = BMI)) +
+  geom_point() +
+  stat_ellipse(geom = "polygon", alpha = .5) +
+  scale_color_manual(aesthetics = c("color", "fill"),
+                     breaks = c("Lean", "Obese"), values = c("black", "red")) +
+  theme_bw() +
+  ggsave("../figures/pca-RNA_noout.png")
+```
+
+## DNA
+
+```{r}
+pr.d <- prcomp(forclust.d)
+
+autoplot(pr.d, data = obes.met, colour = "BMI", frame = T, frame.type = "norm") +
+  scale_color_manual(aesthetics = c("colour", "fill"),
+                     breaks = c("Lean", "Obese"), values = c("black", "red")) +
+  theme_bw() +
+  ggsave("../figures/pca-DNA.png")
+```
+
+```{r DNA try removing outliers}
+pca.ggdat.d <- pr.d$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "label") %>%
+  select(label, PC1, PC2) %>%
+  left_join(obes.met)
+
+pca.ggdat.d %>%
+  filter(PC1 < 0) %>%
+  ggplot(aes(x = PC1, y = PC2, color = BMI, fill = BMI)) +
+  geom_point() +
+  stat_ellipse(geom = "polygon", alpha = .5) +
+  scale_color_manual(aesthetics = c("color", "fill"),
+                     breaks = c("Lean", "Obese"), values = c("black", "red")) +
+  theme_bw() +
+  ggsave("../figures/pca-DNA_noout.png")
+```
+
+# Cluster at many levels
+
+```{r}
+dendroTaxLevel <- function(seqlabs, taxlev){
+  seqlabs$Taxa <- seqlabs[, taxlev]
+  
+  forclust <- seqlabs %>%
+    group_by(samptag, Taxa) %>%
+    summarize(counts = sum(counts, na.rm = T)) %>%
+    as.data.frame() %>%
+    filter(grepl("_int", samptag)) %>%
+    spread(key = "Taxa", value = "counts") %>%
+    gather(-samptag, key = "Taxa", value = "counts") %>%
+    mutate(counts = ifelse(is.na(counts), 0, counts)) %>%
+    spread(key = "Taxa", value = "counts") %>%
+    column_to_rownames(var = "samptag")
+  
+  sampclust <- dendro_data(as.dendrogram(hclust(dist(forclust))))
+  sampclust$labels <- sampclust$labels %>%
+    left_join(bmi.stat)
+  
+  p <- ggplot(sampclust$segments) + 
+    geom_segment(aes(x = x, y = y, xend = xend, yend = yend))+
+    geom_text(data = sampclust$labels, aes(x, y, label = sequence.id, color = BMI),
+              hjust = 1, angle = 90, size = 3) +
+    scale_color_manual(breaks = c("Lean", "Obese"), values = c("black", "red")) +
+    labs(x = "", y = "") +
+    theme_void()
+  return(p)
+}
+```
+
+```{r}
+levs <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
+
+taxclust.r <- lapply(levs, function(x) dendroTaxLevel(seqtab.labs.r, x))
+taxclust.d <- lapply(levs, function(x) dendroTaxLevel(seqtab.labs.d, x))
+
+names(taxclust.r) <- levs
+names(taxclust.d) <- levs
+```
+
+```{r}
+lapply(levs, function(x) ggsave(plot = taxclust.r[[x]], filename = paste0("../figures/dendrogram_RNA_", x, ".png"), device = "png", height = 8))
+
+lapply(levs, function(x) ggsave(plot = taxclust.d[[x]], filename = paste0("../figures/dendrogram_DNA_", x, ".png"), device = "png", height = 8))
+```

@@ -1,0 +1,34 @@
+---
+title: "generate-sample-matches"
+author: "Rebecca Hoyd"
+date: "January 21, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(readxl)
+```
+
+```{r}
+datsign <- read_excel("../data/ATbac samples.xlsx") %>%
+  rename("sample.name" = "Sample Name",
+         "sequence.id" = "Name")
+```
+
+# Chuck excess, write guess
+```{r}
+met <- datsign %>%
+  select(sample.name, sequence.id) %>%
+  separate(sequence.id, into = c("sequence.id"), sep = "-") 
+
+met <- met[!duplicated(met),] %>%
+  mutate(BMI = ifelse(grepl("L", sample.name), "Lean", ifelse(grepl("Neg", sample.name), NA, "Obese")))
+```
+
+
+```{r}
+write.csv(met, "../data/samples_obesity-status.csv", row.names = F)
+```

@@ -1,0 +1,220 @@
+---
+title: "Testing for differences at many levels"
+author: "Rebecca Hoyd"
+date: "February 5, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyr)
+library(dplyr)
+library(tibble)
+library(DESeq2)
+library(broom)
+```
+
+```{r}
+seqtab <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/seqtabNoCf.RDS")
+tax <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/taxf.RDS")
+
+bmi.stat <- read.csv("../data/samples_obesity-status.csv") %>%
+  select(-sample.name) %>%
+  mutate(label = paste0(sequence.id, "_int"))
+```
+
+# Set up
+
+## meta
+
+```{r}
+obes.met <- bmi.stat %>%
+  filter(!grepl("NEG", label))
+```
+
+## RNA 
+
+```{r}
+getnegs <- seqtab %>%
+  filter(grepl("NEG-C", sample))
+
+getnegs <- colSums(getnegs[,-1])
+getnegs <- names(subset(getnegs, getnegs > 0))
+```
+
+```{r}
+seqtab.ncon.r <- seqtab %>%
+  filter(!grepl("NEG", sample)) %>%
+  filter(grepl("-C", sample)) %>%
+  select(-getnegs)
+
+# tax.ncon.r <- tax %>%
+#   filter(!Sequence %in% getnegs)
+```
+
+```{r}
+seqtab.labs.r <- seqtab.ncon.r %>%
+  gather(-sample, key = 'Sequence', value = "counts") %>%
+  left_join(tax) %>%
+  separate(sample, into = c("patient", "samptag"), by = "-") %>%
+  mutate(layer = ifelse(grepl("A", samptag), "aq", "int"),
+         samptag = paste0(patient, "_", layer)) %>%
+  select(-layer, -patient)
+
+```
+
+## DNA 
+
+```{r}
+getnegs <- seqtab %>%
+  filter(grepl("NEG$", sample))
+
+getnegs <- colSums(getnegs[,-1])
+getnegs <- names(subset(getnegs, getnegs > 0))
+```
+
+```{r}
+seqtab.ncon.d <- seqtab %>%
+  filter(!grepl("NEG", sample)) %>%
+  filter(!grepl("-C", sample)) %>%
+  select(-getnegs)
+
+# tax.ncon.r <- tax %>%
+#   filter(!Sequence %in% getnegs)
+```
+
+```{r}
+seqtab.labs.d <- seqtab.ncon.d %>%
+  gather(-sample, key = 'Sequence', value = "counts") %>%
+  left_join(tax) %>%
+  separate(sample, into = c("patient", "samptag"), by = "-") %>%
+  mutate(layer = ifelse(grepl("A", samptag), "aq", "int"),
+         samptag = paste0(patient, "_", layer)) %>%
+  select(-layer, -patient)
+
+```
+
+
+## Testing counts
+```{r}
+check.r <- seqtab.labs.r %>%
+  add_count(samptag, wt = counts, name = "samplecounts")
+
+check.d <- seqtab.labs.d %>%
+  add_count(samptag, wt = counts, name = "samplecounts")
+
+min(check.d$samplecounts)
+min(check.r$samplecounts)
+```
+
+# DESeq2
+
+## Define function
+
+```{r}
+labs2DESeqLevs <- function(seqlabs, taxlev){
+  seqlabs$Taxa <- seqlabs[,taxlev]
+  ddscounts <- seqlabs %>%
+    group_by(samptag, Taxa) %>%
+    summarize(counts = sum(counts, na.rm = T)) %>%
+    as.data.frame() %>%
+    spread(key = 'samptag', value = 'counts') %>%
+    select(-contains("_aq")) %>%
+    filter(!is.na(Taxa)) %>%
+    column_to_rownames(var = "Taxa")
+  
+  badgen <- names(subset(rowSums(ddscounts), rowSums(ddscounts) == 0))
+  ddscounts <- ddscounts[!(rownames(ddscounts) %in% badgen),]
+  
+  badsamp <- names(subset(colSums(ddscounts), colSums(ddscounts) == 0))
+  ddscounts <- ddscounts %>%
+    select(-badsamp)
+  met.temp <- obes.met %>%
+    filter(!label %in% badsamp)
+  
+  dds <- DESeqDataSetFromMatrix(countData = ddscounts, colData = met.temp, design = ~ BMI)
+  dds <- DESeq(dds, sfType = c("poscounts"))
+  
+  dds.res <- results(dds, name = "BMI_Obese_vs_Lean") %>%
+    as.data.frame() %>%
+    rownames_to_column(var = "Taxa") %>%
+    mutate(Taxa.Level = taxlev)
+  
+  return(dds.res)
+}
+```
+
+## Run analysis
+
+```{r}
+levs <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
+
+dds.res.d <- lapply(levs, function(x) labs2DESeqLevs(seqtab.labs.d, x)) %>%
+  bind_rows() %>%
+  mutate(padj = p.adjust(pvalue, method = "fdr")) %>%
+  arrange(pvalue)
+
+dds.res.r <- lapply(c("Phylum", "Class", "Order", "Family", "Genus"), function(x) labs2DESeqLevs(seqtab.labs.r, x)) %>%
+  bind_rows() %>%
+  mutate(padj = p.adjust(pvalue, method = "fdr")) %>%
+  arrange(pvalue)
+```
+
+```{r}
+write.csv(dds.res.d, "../data/DESeq2_all-levs_DNA.csv", row.names = F)
+write.csv(dds.res.r, "../data/DESeq2_all-levs_RNA.csv", row.names = F)
+```
+
+# Fisher Exact tests
+
+## Define function
+
+```{r}
+labs2fisher <- function(seqlabs, taxlev){
+  seqlabs$Taxa <- seqlabs[,taxlev]
+  seqlabs.w <- seqlabs %>%
+    select(samptag, Taxa, counts) %>%
+    rename("samptag" = "label") %>%
+    group_by(label, Taxa) %>%
+    summarise(counts = sum(counts, na.rm = T)) %>%
+    as.data.frame() %>%
+    spread(key = "Taxa", value = "counts") %>%
+    gather(-label, key = "Taxa", value = "counts") %>%
+    mutate(counts = ifelse(is.na(counts), 0, counts),
+           counts = ifelse(counts > 0, 1, 0),
+           counts = as.factor(counts)) %>%
+    spread(key = "Taxa", value = "counts")
+  
+  taxnames <- colnames(seqlabs.w)[-1]
+  newmet <- obes.met %>%
+    left_join(seqlabs.w)
+  fishres <- lapply(taxnames, function(x) fisher.test(newmet$BMI, newmet[, x]) %>% 
+                      tidy() %>%
+                      select(p.value) %>% 
+                      mutate(taxa = x, taxa.level = taxlev)) %>%
+    bind_rows()
+  return(fishres)
+  
+}
+
+```
+
+## Run tests
+
+```{r}
+fishres.d <- lapply(levs, function(x) labs2fisher(seqtab.labs.d, x)) %>%
+  bind_rows() %>%
+  arrange(p.value) %>%
+  mutate(padj = p.adjust(p.value, method = "fdr"))
+
+fishres.r <- lapply(levs, function(x) labs2fisher(seqtab.labs.r, x)) %>%
+  bind_rows() %>%
+  arrange(p.value) %>%
+  mutate(padj = p.adjust(p.value, method = "fdr"))
+```
+
+```{r}
+write.csv(fishres.d, "../data/fisher-exact_all-levels_DNA.csv")
+write.csv(fishres.r, "../data/fisher-exact_all-levels_RNA.csv")
+```

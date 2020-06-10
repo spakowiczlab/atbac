@@ -1,0 +1,97 @@
+---
+title: "AT bacteria"
+author: "Rebecca Hoyd"
+date: "January 16, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(ggfortify)
+library(tidyr)
+library(dplyr)
+```
+
+# Load data
+
+```{r}
+seqtab <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/seqtabNoCf.RDS")
+tax <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/taxf.RDS")
+```
+
+# Manipulate 
+
+```{r}
+taxcounts <- seqtab %>%
+  gather(-sample, key = "Sequence", value = "count") %>%
+  left_join(tax)
+```
+
+```{r}
+taxcounts.phyl <- taxcounts %>%
+  group_by(sample, Phylum) %>%
+  summarise(count = sum(count)) 
+
+taxcounts.fam <- taxcounts %>%
+  group_by(sample, Family) %>%
+  summarise(count = sum(count)) %>%
+  spread(key = "Family", value = "count")
+```
+
+# Stacked bar
+
+```{r}
+taxcounts.phyl %>%
+  mutate(seqtype = ifelse(grepl("-C", sample), "RNA", "DNA")) %>%
+  ggplot(aes(x = sample, y = count, fill = Phylum)) +
+  geom_col(position = "fill") +
+  facet_wrap(vars(seqtype), scales = "free_x") +
+  labs(x = "", y = "") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust=1, size = 8, vjust = .5)) +
+  ggsave("../figures/stacked-bar_phyla.png", width = 10)
+```
+
+
+# PCA
+```{r}
+pr.res <- prcomp(taxcounts.fam[,-1], scale. = T)
+
+meta <- taxcounts.fam %>%
+  as.data.frame() %>%
+  select(sample) %>%
+  mutate(sampid = gsub("(.*)-.*", "\\1", sample),
+         neg = ifelse(grepl("NEG", sampid), "NEG", "sample"))
+
+rownames(meta) <- meta$sample
+```
+
+```{r}
+autoplot(pr.res, data = meta, colour = 'neg') +
+  theme_bw() +
+  ggsave("../figures/quick-pca.png")
+```
+
+# Histogram of counts
+
+```{r}
+famsum <- taxcounts.fam %>%
+  gather(-sample, key = 'family', value = 'count') %>%
+  group_by(sample) %>%
+  summarize(totalmic = sum(count))
+
+famsum %>%
+  ggplot(aes(x = totalmic)) +
+  geom_histogram() +
+  theme_bw() +
+  ggsave("../figures/histogram_family-counts.png")
+
+famsum %>%
+  filter(totalmic < 2000) %>%
+  ggplot(aes(x = totalmic)) +
+  geom_histogram() +
+  theme_bw() +
+  ggsave("../figures/histogram_family-counts_remlarge.png")
+```
