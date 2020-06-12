@@ -1,0 +1,32 @@
+---
+title: "DESeq2 visualization"
+author: "Daniel Spakowicz"
+date: "6/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+```{r}
+d <- read.csv("../data/DESeq2_all-levs_DNA.csv")
+```
+
+```{r}
+d %>%
+  filter(padj < 0.8) %>%
+  mutate(dir = ifelse(log2FoldChange > 0, "pos", "neg")) %>%
+  filter(!grepl("Eukaryota|Sphingomonadaceae", Taxa)) %>%
+  ggplot(aes(x = log2FoldChange, y = reorder(Taxa, log2FoldChange))) +
+  geom_bar(stat = "identity", aes(fill = dir), show.legend = FALSE) +
+  labs(x = "Log Fold Change",
+       y = "") +
+  theme_bw() +
+  ggsave("../figures/DESeq2_all-levs_DNA_top-sig_bar.png", 
+         height = 2, width = 4)
+         
+```
+
