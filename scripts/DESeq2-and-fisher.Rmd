@@ -57,7 +57,7 @@ seqtab.ncon.r <- seqtab %>%
 seqtab.labs.r <- seqtab.ncon.r %>%
   gather(-sample, key = 'Sequence', value = "counts") %>%
   left_join(tax) %>%
-  separate(sample, into = c("patient", "samptag"), by = "-") %>%
+  separate(sample, into = c("patient", "samptag"), sep = "-") %>%
   mutate(layer = ifelse(grepl("A", samptag), "aq", "int"),
          samptag = paste0(patient, "_", layer)) %>%
   select(-layer, -patient)
@@ -88,7 +88,7 @@ seqtab.ncon.d <- seqtab %>%
 seqtab.labs.d <- seqtab.ncon.d %>%
   gather(-sample, key = 'Sequence', value = "counts") %>%
   left_join(tax) %>%
-  separate(sample, into = c("patient", "samptag"), by = "-") %>%
+  separate(sample, into = c("patient", "samptag"), sep = "-") %>%
   mutate(layer = ifelse(grepl("A", samptag), "aq", "int"),
          samptag = paste0(patient, "_", layer)) %>%
   select(-layer, -patient)
