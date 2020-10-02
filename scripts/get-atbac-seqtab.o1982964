@@ -1,0 +1,608 @@
+
+This module will switch Compiler environment to gnu/9.1.0 and load mkl/2019.0.5
+for R/3.6.3
+
+
+Lmod is automatically replacing "intel/19.0.5" with "gnu/9.1.0".
+
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) mvapich2/2.3.3
+
+Loading required package: Rcpp
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which, which.max, which.min
+
+Loading required package: BiocParallel
+Loading required package: Biostrings
+Loading required package: S4Vectors
+Loading required package: stats4
+
+Attaching package: ‘S4Vectors’
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+Loading required package: IRanges
+Loading required package: XVector
+
+Attaching package: ‘Biostrings’
+
+The following object is masked from ‘package:base’:
+
+    strsplit
+
+Loading required package: Rsamtools
+Loading required package: GenomeInfoDb
+Loading required package: GenomicRanges
+Loading required package: GenomicAlignments
+Loading required package: SummarizedExperiment
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+Loading required package: DelayedArray
+Loading required package: matrixStats
+
+Attaching package: ‘matrixStats’
+
+The following objects are masked from ‘package:Biobase’:
+
+    anyMissing, rowMedians
+
+
+Attaching package: ‘DelayedArray’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colMaxs, colMins, colRanges, rowMaxs, rowMins, rowRanges
+
+The following object is masked from ‘package:Biostrings’:
+
+    type
+
+The following objects are masked from ‘package:base’:
+
+    aperm, apply, rowsum
+
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB001-A_F_filt.fastq.gz
+.Encountered 648114 unique sequences from 1452077 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB001-CA_F_filt.fastq.gz
+Encountered 309 unique sequences from 368 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB001-CI_F_filt.fastq.gz
+Encountered 5210 unique sequences from 8797 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB001-I_F_filt.fastq.gz
+Encountered 74766 unique sequences from 164589 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB002-A_F_filt.fastq.gz
+Encountered 109397 unique sequences from 217629 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB002-CA_F_filt.fastq.gz
+Encountered 384 unique sequences from 461 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB002-CI_F_filt.fastq.gz
+Encountered 459 unique sequences from 508 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB002-I_F_filt.fastq.gz
+Encountered 208661 unique sequences from 454370 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB003-A_F_filt.fastq.gz
+Encountered 140629 unique sequences from 318508 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB003-CA_F_filt.fastq.gz
+Encountered 423 unique sequences from 494 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB003-CI_F_filt.fastq.gz
+Encountered 509 unique sequences from 589 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB003-I_F_filt.fastq.gz
+Encountered 388 unique sequences from 439 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB004-A_F_filt.fastq.gz
+Encountered 130687 unique sequences from 224466 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB004-CA_F_filt.fastq.gz
+Encountered 4839 unique sequences from 6323 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB004-CI_F_filt.fastq.gz
+Encountered 496 unique sequences from 581 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB004-I_F_filt.fastq.gz
+Encountered 92654 unique sequences from 234405 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB005-A_F_filt.fastq.gz
+Encountered 43225 unique sequences from 61694 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB005-CA_F_filt.fastq.gz
+Encountered 1250 unique sequences from 1492 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB005-CI_F_filt.fastq.gz
+Encountered 4407 unique sequences from 9836 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB005-I_F_filt.fastq.gz
+Encountered 64817 unique sequences from 97822 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB006-A_F_filt.fastq.gz
+Encountered 7441 unique sequences from 12938 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB006-CA_F_filt.fastq.gz
+Encountered 156 unique sequences from 171 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB006-CI_F_filt.fastq.gz
+Encountered 5262 unique sequences from 12222 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB006-I_F_filt.fastq.gz
+Encountered 29776 unique sequences from 64616 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB007-A_F_filt.fastq.gz
+Encountered 37020 unique sequences from 70765 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB007-CA_F_filt.fastq.gz
+Encountered 1342 unique sequences from 1552 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB007-CI_F_filt.fastq.gz
+Encountered 2153 unique sequences from 2832 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB007-I_F_filt.fastq.gz
+Encountered 3915 unique sequences from 6222 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB008-A_F_filt.fastq.gz
+Encountered 19671 unique sequences from 39326 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB008-CA_F_filt.fastq.gz
+Encountered 413 unique sequences from 487 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB008-CI_F_filt.fastq.gz
+Encountered 51357 unique sequences from 215822 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB008-I_F_filt.fastq.gz
+Encountered 53511 unique sequences from 75600 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB009-A_F_filt.fastq.gz
+Encountered 4111 unique sequences from 5826 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB009-CA_F_filt.fastq.gz
+Encountered 447 unique sequences from 521 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB009-CI_F_filt.fastq.gz
+Encountered 3946 unique sequences from 8892 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB009-I_F_filt.fastq.gz
+Encountered 41953 unique sequences from 59273 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB010-A_F_filt.fastq.gz
+Encountered 3563 unique sequences from 5368 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB010-CA_F_filt.fastq.gz
+Encountered 317 unique sequences from 370 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB010-CI_F_filt.fastq.gz
+Encountered 9800 unique sequences from 25327 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB010-I_F_filt.fastq.gz
+Encountered 51430 unique sequences from 106098 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB011-A_F_filt.fastq.gz
+Encountered 32473 unique sequences from 80267 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB011-CA_F_filt.fastq.gz
+Encountered 477 unique sequences from 561 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB011-CI_F_filt.fastq.gz
+Encountered 36568 unique sequences from 132576 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB011-I_F_filt.fastq.gz
+Encountered 4307 unique sequences from 6300 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB012-A_F_filt.fastq.gz
+Encountered 8754 unique sequences from 14215 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB012-CA_F_filt.fastq.gz
+Encountered 18291 unique sequences from 55137 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB012-CI_F_filt.fastq.gz
+Encountered 14020 unique sequences from 38488 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB012-I_F_filt.fastq.gz
+Encountered 21949 unique sequences from 39484 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB013-A_F_filt.fastq.gz
+Encountered 18383 unique sequences from 34785 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB013-CA_F_filt.fastq.gz
+Encountered 2494 unique sequences from 3442 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB013-CI_F_filt.fastq.gz
+Encountered 63449 unique sequences from 187178 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB013-I_F_filt.fastq.gz
+Encountered 22156 unique sequences from 41987 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB014-A_F_filt.fastq.gz
+Encountered 2027 unique sequences from 2581 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB014-CA_F_filt.fastq.gz
+Encountered 9159 unique sequences from 18558 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB014-CI_F_filt.fastq.gz
+Encountered 26437 unique sequences from 86356 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB014-I_F_filt.fastq.gz
+Encountered 5057 unique sequences from 8420 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB015-A_F_filt.fastq.gz
+Encountered 24839 unique sequences from 36193 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB015-CA_F_filt.fastq.gz
+Encountered 1121 unique sequences from 1499 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB015-CI_F_filt.fastq.gz
+Encountered 47459 unique sequences from 159431 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB015-I_F_filt.fastq.gz
+Encountered 32003 unique sequences from 44524 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB016-A_F_filt.fastq.gz
+Encountered 137692 unique sequences from 254085 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB016-CA_F_filt.fastq.gz
+Encountered 398 unique sequences from 470 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB016-CI_F_filt.fastq.gz
+Encountered 239 unique sequences from 277 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB016-I_F_filt.fastq.gz
+Encountered 12110 unique sequences from 19127 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB017-A_F_filt.fastq.gz
+Encountered 19160 unique sequences from 51246 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB017-CA_F_filt.fastq.gz
+Encountered 594 unique sequences from 740 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB017-CI_F_filt.fastq.gz
+Encountered 73404 unique sequences from 233308 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB017-I_F_filt.fastq.gz
+Encountered 127250 unique sequences from 242443 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/ABNEG_F_filt.fastq.gz
+Encountered 233 unique sequences from 255 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/ABNEG-C_F_filt.fastq.gz
+Encountered 2513 unique sequences from 4254 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB001-A_R_filt.fastq.gz
+.Encountered 495574 unique sequences from 1452077 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB001-CA_R_filt.fastq.gz
+Encountered 301 unique sequences from 368 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB001-CI_R_filt.fastq.gz
+Encountered 4665 unique sequences from 8797 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB001-I_R_filt.fastq.gz
+Encountered 58626 unique sequences from 164589 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB002-A_R_filt.fastq.gz
+Encountered 88133 unique sequences from 217629 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB002-CA_R_filt.fastq.gz
+Encountered 390 unique sequences from 461 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB002-CI_R_filt.fastq.gz
+Encountered 454 unique sequences from 508 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB002-I_R_filt.fastq.gz
+Encountered 174606 unique sequences from 454370 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB003-A_R_filt.fastq.gz
+Encountered 113648 unique sequences from 318508 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB003-CA_R_filt.fastq.gz
+Encountered 405 unique sequences from 494 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB003-CI_R_filt.fastq.gz
+Encountered 498 unique sequences from 589 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB003-I_R_filt.fastq.gz
+Encountered 386 unique sequences from 439 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB004-A_R_filt.fastq.gz
+Encountered 102821 unique sequences from 224466 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB004-CA_R_filt.fastq.gz
+Encountered 4302 unique sequences from 6323 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB004-CI_R_filt.fastq.gz
+Encountered 492 unique sequences from 581 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB004-I_R_filt.fastq.gz
+Encountered 73212 unique sequences from 234405 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB005-A_R_filt.fastq.gz
+Encountered 36319 unique sequences from 61694 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB005-CA_R_filt.fastq.gz
+Encountered 1148 unique sequences from 1492 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB005-CI_R_filt.fastq.gz
+Encountered 4074 unique sequences from 9836 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB005-I_R_filt.fastq.gz
+Encountered 53295 unique sequences from 97822 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB006-A_R_filt.fastq.gz
+Encountered 6323 unique sequences from 12938 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB006-CA_R_filt.fastq.gz
+Encountered 154 unique sequences from 171 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB006-CI_R_filt.fastq.gz
+Encountered 4901 unique sequences from 12222 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB006-I_R_filt.fastq.gz
+Encountered 24182 unique sequences from 64616 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB007-A_R_filt.fastq.gz
+Encountered 30947 unique sequences from 70765 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB007-CA_R_filt.fastq.gz
+Encountered 1316 unique sequences from 1552 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB007-CI_R_filt.fastq.gz
+Encountered 1986 unique sequences from 2832 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB007-I_R_filt.fastq.gz
+Encountered 3539 unique sequences from 6222 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB008-A_R_filt.fastq.gz
+Encountered 16900 unique sequences from 39326 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB008-CA_R_filt.fastq.gz
+Encountered 389 unique sequences from 487 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB008-CI_R_filt.fastq.gz
+Encountered 45891 unique sequences from 215822 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB008-I_R_filt.fastq.gz
+Encountered 45058 unique sequences from 75600 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB009-A_R_filt.fastq.gz
+Encountered 3888 unique sequences from 5826 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB009-CA_R_filt.fastq.gz
+Encountered 425 unique sequences from 521 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB009-CI_R_filt.fastq.gz
+Encountered 3515 unique sequences from 8892 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB009-I_R_filt.fastq.gz
+Encountered 35091 unique sequences from 59273 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB010-A_R_filt.fastq.gz
+Encountered 3259 unique sequences from 5368 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB010-CA_R_filt.fastq.gz
+Encountered 313 unique sequences from 370 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB010-CI_R_filt.fastq.gz
+Encountered 8782 unique sequences from 25327 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB010-I_R_filt.fastq.gz
+Encountered 41042 unique sequences from 106098 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB011-A_R_filt.fastq.gz
+Encountered 26285 unique sequences from 80267 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB011-CA_R_filt.fastq.gz
+Encountered 459 unique sequences from 561 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB011-CI_R_filt.fastq.gz
+Encountered 32254 unique sequences from 132576 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB011-I_R_filt.fastq.gz
+Encountered 4035 unique sequences from 6300 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB012-A_R_filt.fastq.gz
+Encountered 7627 unique sequences from 14215 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB012-CA_R_filt.fastq.gz
+Encountered 16333 unique sequences from 55137 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB012-CI_R_filt.fastq.gz
+Encountered 12875 unique sequences from 38488 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB012-I_R_filt.fastq.gz
+Encountered 18524 unique sequences from 39484 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB013-A_R_filt.fastq.gz
+Encountered 15676 unique sequences from 34785 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB013-CA_R_filt.fastq.gz
+Encountered 2185 unique sequences from 3442 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB013-CI_R_filt.fastq.gz
+Encountered 51619 unique sequences from 187178 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB013-I_R_filt.fastq.gz
+Encountered 19117 unique sequences from 41987 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB014-A_R_filt.fastq.gz
+Encountered 1900 unique sequences from 2581 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB014-CA_R_filt.fastq.gz
+Encountered 7888 unique sequences from 18558 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB014-CI_R_filt.fastq.gz
+Encountered 23981 unique sequences from 86356 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB014-I_R_filt.fastq.gz
+Encountered 4625 unique sequences from 8420 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB015-A_R_filt.fastq.gz
+Encountered 21265 unique sequences from 36193 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB015-CA_R_filt.fastq.gz
+Encountered 1044 unique sequences from 1499 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB015-CI_R_filt.fastq.gz
+Encountered 42723 unique sequences from 159431 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB015-I_R_filt.fastq.gz
+Encountered 27439 unique sequences from 44524 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB016-A_R_filt.fastq.gz
+Encountered 111964 unique sequences from 254085 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB016-CA_R_filt.fastq.gz
+Encountered 399 unique sequences from 470 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB016-CI_R_filt.fastq.gz
+Encountered 237 unique sequences from 277 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB016-I_R_filt.fastq.gz
+Encountered 10219 unique sequences from 19127 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB017-A_R_filt.fastq.gz
+Encountered 15451 unique sequences from 51246 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB017-CA_R_filt.fastq.gz
+Encountered 591 unique sequences from 740 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB017-CI_R_filt.fastq.gz
+Encountered 62870 unique sequences from 233308 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/AB017-I_R_filt.fastq.gz
+Encountered 102750 unique sequences from 242443 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/ABNEG_R_filt.fastq.gz
+Encountered 229 unique sequences from 255 total sequences read.
+Dereplicating sequence entries in Fastq file: /fs/scratch/PAS1479/atbac/atbac-fastq//filtered/ABNEG-C_R_filt.fastq.gz
+Encountered 2151 unique sequences from 4254 total sequences read.
+Initializing error rates to maximum possible estimate.
+selfConsist step 1 ......................................................................
+   selfConsist step 2
+   selfConsist step 3
+   selfConsist step 4
+   selfConsist step 5
+   selfConsist step 6
+   selfConsist step 7
+   selfConsist step 8
+   selfConsist step 9
+   selfConsist step 10
+Self-consistency loop terminated before convergence.
+Initializing error rates to maximum possible estimate.
+selfConsist step 1 ......................................................................
+   selfConsist step 2
+   selfConsist step 3
+   selfConsist step 4
+   selfConsist step 5
+   selfConsist step 6
+   selfConsist step 7
+   selfConsist step 8
+   selfConsist step 9
+   selfConsist step 10
+Self-consistency loop terminated before convergence.
+Sample 1 - 1452077 reads in 648114 unique sequences.
+Sample 2 - 368 reads in 309 unique sequences.
+Sample 3 - 8797 reads in 5210 unique sequences.
+Sample 4 - 164589 reads in 74766 unique sequences.
+Sample 5 - 217629 reads in 109397 unique sequences.
+Sample 6 - 461 reads in 384 unique sequences.
+Sample 7 - 508 reads in 459 unique sequences.
+Sample 8 - 454370 reads in 208661 unique sequences.
+Sample 9 - 318508 reads in 140629 unique sequences.
+Sample 10 - 494 reads in 423 unique sequences.
+Sample 11 - 589 reads in 509 unique sequences.
+Sample 12 - 439 reads in 388 unique sequences.
+Sample 13 - 224466 reads in 130687 unique sequences.
+Sample 14 - 6323 reads in 4839 unique sequences.
+Sample 15 - 581 reads in 496 unique sequences.
+Sample 16 - 234405 reads in 92654 unique sequences.
+Sample 17 - 61694 reads in 43225 unique sequences.
+Sample 18 - 1492 reads in 1250 unique sequences.
+Sample 19 - 9836 reads in 4407 unique sequences.
+Sample 20 - 97822 reads in 64817 unique sequences.
+Sample 21 - 12938 reads in 7441 unique sequences.
+Sample 22 - 171 reads in 156 unique sequences.
+Sample 23 - 12222 reads in 5262 unique sequences.
+Sample 24 - 64616 reads in 29776 unique sequences.
+Sample 25 - 70765 reads in 37020 unique sequences.
+Sample 26 - 1552 reads in 1342 unique sequences.
+Sample 27 - 2832 reads in 2153 unique sequences.
+Sample 28 - 6222 reads in 3915 unique sequences.
+Sample 29 - 39326 reads in 19671 unique sequences.
+Sample 30 - 487 reads in 413 unique sequences.
+Sample 31 - 215822 reads in 51357 unique sequences.
+Sample 32 - 75600 reads in 53511 unique sequences.
+Sample 33 - 5826 reads in 4111 unique sequences.
+Sample 34 - 521 reads in 447 unique sequences.
+Sample 35 - 8892 reads in 3946 unique sequences.
+Sample 36 - 59273 reads in 41953 unique sequences.
+Sample 37 - 5368 reads in 3563 unique sequences.
+Sample 38 - 370 reads in 317 unique sequences.
+Sample 39 - 25327 reads in 9800 unique sequences.
+Sample 40 - 106098 reads in 51430 unique sequences.
+Sample 41 - 80267 reads in 32473 unique sequences.
+Sample 42 - 561 reads in 477 unique sequences.
+Sample 43 - 132576 reads in 36568 unique sequences.
+Sample 44 - 6300 reads in 4307 unique sequences.
+Sample 45 - 14215 reads in 8754 unique sequences.
+Sample 46 - 55137 reads in 18291 unique sequences.
+Sample 47 - 38488 reads in 14020 unique sequences.
+Sample 48 - 39484 reads in 21949 unique sequences.
+Sample 49 - 34785 reads in 18383 unique sequences.
+Sample 50 - 3442 reads in 2494 unique sequences.
+Sample 51 - 187178 reads in 63449 unique sequences.
+Sample 52 - 41987 reads in 22156 unique sequences.
+Sample 53 - 2581 reads in 2027 unique sequences.
+Sample 54 - 18558 reads in 9159 unique sequences.
+Sample 55 - 86356 reads in 26437 unique sequences.
+Sample 56 - 8420 reads in 5057 unique sequences.
+Sample 57 - 36193 reads in 24839 unique sequences.
+Sample 58 - 1499 reads in 1121 unique sequences.
+Sample 59 - 159431 reads in 47459 unique sequences.
+Sample 60 - 44524 reads in 32003 unique sequences.
+Sample 61 - 254085 reads in 137692 unique sequences.
+Sample 62 - 470 reads in 398 unique sequences.
+Sample 63 - 277 reads in 239 unique sequences.
+Sample 64 - 19127 reads in 12110 unique sequences.
+Sample 65 - 51246 reads in 19160 unique sequences.
+Sample 66 - 740 reads in 594 unique sequences.
+Sample 67 - 233308 reads in 73404 unique sequences.
+Sample 68 - 242443 reads in 127250 unique sequences.
+Sample 69 - 255 reads in 233 unique sequences.
+Sample 70 - 4254 reads in 2513 unique sequences.
+Sample 1 - 1452077 reads in 495574 unique sequences.
+Sample 2 - 368 reads in 301 unique sequences.
+Sample 3 - 8797 reads in 4665 unique sequences.
+Sample 4 - 164589 reads in 58626 unique sequences.
+Sample 5 - 217629 reads in 88133 unique sequences.
+Sample 6 - 461 reads in 390 unique sequences.
+Sample 7 - 508 reads in 454 unique sequences.
+Sample 8 - 454370 reads in 174606 unique sequences.
+Sample 9 - 318508 reads in 113648 unique sequences.
+Sample 10 - 494 reads in 405 unique sequences.
+Sample 11 - 589 reads in 498 unique sequences.
+Sample 12 - 439 reads in 386 unique sequences.
+Sample 13 - 224466 reads in 102821 unique sequences.
+Sample 14 - 6323 reads in 4302 unique sequences.
+Sample 15 - 581 reads in 492 unique sequences.
+Sample 16 - 234405 reads in 73212 unique sequences.
+Sample 17 - 61694 reads in 36319 unique sequences.
+Sample 18 - 1492 reads in 1148 unique sequences.
+Sample 19 - 9836 reads in 4074 unique sequences.
+Sample 20 - 97822 reads in 53295 unique sequences.
+Sample 21 - 12938 reads in 6323 unique sequences.
+Sample 22 - 171 reads in 154 unique sequences.
+Sample 23 - 12222 reads in 4901 unique sequences.
+Sample 24 - 64616 reads in 24182 unique sequences.
+Sample 25 - 70765 reads in 30947 unique sequences.
+Sample 26 - 1552 reads in 1316 unique sequences.
+Sample 27 - 2832 reads in 1986 unique sequences.
+Sample 28 - 6222 reads in 3539 unique sequences.
+Sample 29 - 39326 reads in 16900 unique sequences.
+Sample 30 - 487 reads in 389 unique sequences.
+Sample 31 - 215822 reads in 45891 unique sequences.
+Sample 32 - 75600 reads in 45058 unique sequences.
+Sample 33 - 5826 reads in 3888 unique sequences.
+Sample 34 - 521 reads in 425 unique sequences.
+Sample 35 - 8892 reads in 3515 unique sequences.
+Sample 36 - 59273 reads in 35091 unique sequences.
+Sample 37 - 5368 reads in 3259 unique sequences.
+Sample 38 - 370 reads in 313 unique sequences.
+Sample 39 - 25327 reads in 8782 unique sequences.
+Sample 40 - 106098 reads in 41042 unique sequences.
+Sample 41 - 80267 reads in 26285 unique sequences.
+Sample 42 - 561 reads in 459 unique sequences.
+Sample 43 - 132576 reads in 32254 unique sequences.
+Sample 44 - 6300 reads in 4035 unique sequences.
+Sample 45 - 14215 reads in 7627 unique sequences.
+Sample 46 - 55137 reads in 16333 unique sequences.
+Sample 47 - 38488 reads in 12875 unique sequences.
+Sample 48 - 39484 reads in 18524 unique sequences.
+Sample 49 - 34785 reads in 15676 unique sequences.
+Sample 50 - 3442 reads in 2185 unique sequences.
+Sample 51 - 187178 reads in 51619 unique sequences.
+Sample 52 - 41987 reads in 19117 unique sequences.
+Sample 53 - 2581 reads in 1900 unique sequences.
+Sample 54 - 18558 reads in 7888 unique sequences.
+Sample 55 - 86356 reads in 23981 unique sequences.
+Sample 56 - 8420 reads in 4625 unique sequences.
+Sample 57 - 36193 reads in 21265 unique sequences.
+Sample 58 - 1499 reads in 1044 unique sequences.
+Sample 59 - 159431 reads in 42723 unique sequences.
+Sample 60 - 44524 reads in 27439 unique sequences.
+Sample 61 - 254085 reads in 111964 unique sequences.
+Sample 62 - 470 reads in 399 unique sequences.
+Sample 63 - 277 reads in 237 unique sequences.
+Sample 64 - 19127 reads in 10219 unique sequences.
+Sample 65 - 51246 reads in 15451 unique sequences.
+Sample 66 - 740 reads in 591 unique sequences.
+Sample 67 - 233308 reads in 62870 unique sequences.
+Sample 68 - 242443 reads in 102750 unique sequences.
+Sample 69 - 255 reads in 229 unique sequences.
+Sample 70 - 4254 reads in 2151 unique sequences.
+74025 paired-reads (in 3706 unique pairings) successfully merged out of 1414551 (in 154043 pairings) input.
+9 paired-reads (in 3 unique pairings) successfully merged out of 203 (in 33 pairings) input.
+716 paired-reads (in 10 unique pairings) successfully merged out of 8162 (in 259 pairings) input.
+4789 paired-reads (in 223 unique pairings) successfully merged out of 159432 (in 6720 pairings) input.
+21999 paired-reads (in 1065 unique pairings) successfully merged out of 210677 (in 15093 pairings) input.
+31 paired-reads (in 2 unique pairings) successfully merged out of 289 (in 44 pairings) input.
+52 paired-reads (in 6 unique pairings) successfully merged out of 175 (in 42 pairings) input.
+3372 paired-reads (in 434 unique pairings) successfully merged out of 444569 (in 30249 pairings) input.
+10943 paired-reads (in 445 unique pairings) successfully merged out of 310374 (in 20357 pairings) input.
+31 paired-reads (in 5 unique pairings) successfully merged out of 295 (in 31 pairings) input.
+10 paired-reads (in 1 unique pairings) successfully merged out of 308 (in 42 pairings) input.
+6 paired-reads (in 2 unique pairings) successfully merged out of 189 (in 49 pairings) input.
+2702 paired-reads (in 328 unique pairings) successfully merged out of 210232 (in 26202 pairings) input.
+69 paired-reads (in 10 unique pairings) successfully merged out of 5528 (in 346 pairings) input.
+12 paired-reads (in 5 unique pairings) successfully merged out of 286 (in 61 pairings) input.
+1756 paired-reads (in 314 unique pairings) successfully merged out of 229216 (in 10329 pairings) input.
+937 paired-reads (in 53 unique pairings) successfully merged out of 55051 (in 5413 pairings) input.
+187 paired-reads (in 10 unique pairings) successfully merged out of 1141 (in 64 pairings) input.
+7755 paired-reads (in 255 unique pairings) successfully merged out of 9351 (in 300 pairings) input.
+3084 paired-reads (in 209 unique pairings) successfully merged out of 93307 (in 5785 pairings) input.
+1790 paired-reads (in 52 unique pairings) successfully merged out of 12587 (in 200 pairings) input.
+0 paired-reads (in 0 unique pairings) successfully merged out of 58 (in 10 pairings) input.
+11216 paired-reads (in 917 unique pairings) successfully merged out of 11808 (in 985 pairings) input.
+449 paired-reads (in 72 unique pairings) successfully merged out of 62523 (in 1430 pairings) input.
+2887 paired-reads (in 236 unique pairings) successfully merged out of 68122 (in 4300 pairings) input.
+24 paired-reads (in 5 unique pairings) successfully merged out of 827 (in 129 pairings) input.
+144 paired-reads (in 8 unique pairings) successfully merged out of 2301 (in 130 pairings) input.
+3 paired-reads (in 1 unique pairings) successfully merged out of 6051 (in 72 pairings) input.
+2578 paired-reads (in 119 unique pairings) successfully merged out of 38501 (in 825 pairings) input.
+136 paired-reads (in 6 unique pairings) successfully merged out of 327 (in 32 pairings) input.
+215246 paired-reads (in 528 unique pairings) successfully merged out of 215619 (in 566 pairings) input.
+1981 paired-reads (in 112 unique pairings) successfully merged out of 67581 (in 7012 pairings) input.
+576 paired-reads (in 8 unique pairings) successfully merged out of 5488 (in 114 pairings) input.
+26 paired-reads (in 4 unique pairings) successfully merged out of 292 (in 38 pairings) input.
+8274 paired-reads (in 416 unique pairings) successfully merged out of 8615 (in 451 pairings) input.
+304 paired-reads (in 16 unique pairings) successfully merged out of 51308 (in 6669 pairings) input.
+15 paired-reads (in 4 unique pairings) successfully merged out of 4946 (in 139 pairings) input.
+73 paired-reads (in 5 unique pairings) successfully merged out of 263 (in 20 pairings) input.
+24492 paired-reads (in 770 unique pairings) successfully merged out of 25058 (in 817 pairings) input.
+13012 paired-reads (in 373 unique pairings) successfully merged out of 103915 (in 3739 pairings) input.
+477 paired-reads (in 85 unique pairings) successfully merged out of 77738 (in 2762 pairings) input.
+5 paired-reads (in 1 unique pairings) successfully merged out of 327 (in 35 pairings) input.
+130836 paired-reads (in 483 unique pairings) successfully merged out of 132193 (in 541 pairings) input.
+254 paired-reads (in 5 unique pairings) successfully merged out of 5953 (in 157 pairings) input.
+691 paired-reads (in 6 unique pairings) successfully merged out of 13694 (in 259 pairings) input.
+51553 paired-reads (in 457 unique pairings) successfully merged out of 54648 (in 589 pairings) input.
+37799 paired-reads (in 1102 unique pairings) successfully merged out of 38180 (in 1142 pairings) input.
+3911 paired-reads (in 63 unique pairings) successfully merged out of 38079 (in 894 pairings) input.
+2055 paired-reads (in 23 unique pairings) successfully merged out of 33668 (in 1087 pairings) input.
+229 paired-reads (in 8 unique pairings) successfully merged out of 2891 (in 146 pairings) input.
+183946 paired-reads (in 487 unique pairings) successfully merged out of 186622 (in 621 pairings) input.
+6099 paired-reads (in 121 unique pairings) successfully merged out of 40745 (in 936 pairings) input.
+26 paired-reads (in 3 unique pairings) successfully merged out of 2011 (in 195 pairings) input.
+16978 paired-reads (in 813 unique pairings) successfully merged out of 18193 (in 865 pairings) input.
+85657 paired-reads (in 359 unique pairings) successfully merged out of 85950 (in 405 pairings) input.
+653 paired-reads (in 9 unique pairings) successfully merged out of 7862 (in 217 pairings) input.
+2020 paired-reads (in 88 unique pairings) successfully merged out of 32060 (in 3137 pairings) input.
+70 paired-reads (in 6 unique pairings) successfully merged out of 1160 (in 96 pairings) input.
+128395 paired-reads (in 541 unique pairings) successfully merged out of 159168 (in 1169 pairings) input.
+841 paired-reads (in 48 unique pairings) successfully merged out of 38347 (in 5203 pairings) input.
+3646 paired-reads (in 413 unique pairings) successfully merged out of 237687 (in 28537 pairings) input.
+34 paired-reads (in 3 unique pairings) successfully merged out of 317 (in 34 pairings) input.
+88 paired-reads (in 1 unique pairings) successfully merged out of 156 (in 19 pairings) input.
+3685 paired-reads (in 151 unique pairings) successfully merged out of 17210 (in 1291 pairings) input.
+2180 paired-reads (in 263 unique pairings) successfully merged out of 50040 (in 2080 pairings) input.
+4 paired-reads (in 1 unique pairings) successfully merged out of 550 (in 24 pairings) input.
+230673 paired-reads (in 1106 unique pairings) successfully merged out of 232232 (in 1345 pairings) input.
+2980 paired-reads (in 207 unique pairings) successfully merged out of 234335 (in 18785 pairings) input.
+72 paired-reads (in 1 unique pairings) successfully merged out of 88 (in 6 pairings) input.
+100 paired-reads (in 11 unique pairings) successfully merged out of 3807 (in 129 pairings) input.
+Identified 9155 bimeras out of 11991 input sequences.
+[1] 0.4814602
