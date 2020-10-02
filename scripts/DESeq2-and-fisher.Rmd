@@ -16,8 +16,12 @@ library(broom)
 ```
 
 ```{r}
-seqtab <- readRDS("../data/seqtabNoCf.RDS")
-tax <- readRDS("../data/taxf.RDS")
+seqtab <- readRDS("../data/seqtabNoCf_update.RDS") %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "sample")
+tax <- readRDS("../data/taxf_update.RDS") %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sequence")
 
 bmi.stat <- read.csv("../data/samples_obesity-status.csv") %>%
   select(-sample.name) %>%
@@ -148,14 +152,14 @@ labs2DESeqLevs <- function(seqlabs, taxlev){
 ## Run analysis
 
 ```{r}
-levs <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
+levs <- c("Phylum", "Class", "Order", "Family", "Genus")
 
 dds.res.d <- lapply(levs, function(x) labs2DESeqLevs(seqtab.labs.d, x)) %>%
   bind_rows() %>%
   mutate(padj = p.adjust(pvalue, method = "fdr")) %>%
   arrange(pvalue)
 
-dds.res.r <- lapply(c("Phylum", "Class", "Order", "Family", "Genus"), function(x) labs2DESeqLevs(seqtab.labs.r, x)) %>%
+dds.res.r <- lapply(levs, function(x) labs2DESeqLevs(seqtab.labs.r, x)) %>%
   bind_rows() %>%
   mutate(padj = p.adjust(pvalue, method = "fdr")) %>%
   arrange(pvalue)

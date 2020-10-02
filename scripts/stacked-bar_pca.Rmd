@@ -18,8 +18,8 @@ library(forcats)
 # Load data
 
 ```{r}
-seqtab <- readRDS("../data/seqtabNoCf.RDS")
-tax <- readRDS("../data/taxf.RDS")
+seqtab <- readRDS("../data/seqtabNoCf_update.RDS")
+tax <- readRDS("../data/taxf_update.RDS")
 
 bmi.stat <- read.csv("../data/samples_obesity-status.csv", stringsAsFactors = F) %>%
   select(-sample.name) %>%
@@ -30,7 +30,13 @@ bmi.stat <- read.csv("../data/samples_obesity-status.csv", stringsAsFactors = F)
 # Manipulate 
 
 ```{r}
+tax <- tax %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sequence")
+
 taxcounts <- seqtab %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "sample") %>%
   gather(-sample, key = "Sequence", value = "count") %>%
   left_join(tax)
 ```

@@ -20,8 +20,12 @@ library(DESeq2)
 ```
 
 ```{r}
-seqtab <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/seqtabNoCf.RDS")
-tax <- readRDS("T://Labs/Spakowicz/data/Atbac-rberry/atbac-dada2out/taxf.RDS")
+seqtab <- readRDS("../data/seqtabNoCf_update.RDS") %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "sample")
+tax <- readRDS("../data/taxf_update.RDS") %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sequence")
 
 bmi.stat <- read.csv("../data/samples_obesity-status.csv") %>%
   select(-sample.name) %>%
@@ -53,7 +57,7 @@ seqtab.ncon.r <- seqtab %>%
 seqtab.labs.r <- seqtab.ncon.r %>%
   gather(-sample, key = 'Sequence', value = "counts") %>%
   left_join(tax) %>%
-  separate(sample, into = c("patient", "samptag"), by = "-") %>%
+  separate(sample, into = c("patient", "samptag"), sep = "-") %>%
   mutate(layer = ifelse(grepl("A", samptag), "aq", "int"),
          samptag = paste0(patient, "_", layer)) %>%
   select(-layer, -patient)
@@ -106,7 +110,7 @@ seqtab.ncon.d <- seqtab %>%
 seqtab.labs.d <- seqtab.ncon.d %>%
   gather(-sample, key = 'Sequence', value = "counts") %>%
   left_join(tax) %>%
-  separate(sample, into = c("patient", "samptag"), by = "-") %>%
+  separate(sample, into = c("patient", "samptag"), sep = "-") %>%
   mutate(layer = ifelse(grepl("A", samptag), "aq", "int"),
          samptag = paste0(patient, "_", layer)) %>%
   select(-layer, -patient)

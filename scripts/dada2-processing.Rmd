@@ -114,6 +114,9 @@ sum(seqtab.nochim)/sum(seqtab)
 seqtab.nochim <- readRDS("../data/seqtabNoC_update.RDS")
 taxa <- assignTaxonomy(seqtab.nochim, "../../../db/dada2/rdp_train_set_14.fa.gz")
 unname(head(taxa))
+
+saveRDS(taxa, "../data/tax_update.RDS")
+# taxa <- readRDS("../data/tax_update.RDS")
 ```
 
 # Test sequence lengths, filter
@@ -128,7 +131,7 @@ ggplot(l, aes(x = l)) +
 ```
 
 ```{r}
-longenough <- l > 435 & l < 470
+longenough <- l$l > 325 & l$l < 360
 sum(longenough) / length(longenough)
 
 seqtabNoCf <- seqtab.nochim[, longenough]
@@ -137,7 +140,7 @@ taxf <- taxa[longenough, ]
 
 # Save filtered tables
 ```{r}
-saveRDS(seqtabNoCf, file = "../data/seqtabNoCf_update.Rdata")
-saveRDS(taxf, file = "../data/taxf_update.Rdata")
+saveRDS(seqtabNoCf, file = "../data/seqtabNoCf_update.RDS")
+saveRDS(taxf, file = "../data/taxf_update.RDS")
 ```
 
