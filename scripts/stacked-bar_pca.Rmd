@@ -13,6 +13,7 @@ library(ggfortify)
 library(tidyr)
 library(dplyr)
 library(forcats)
+library(RColorBrewer)
 ```
 
 # Load data
@@ -43,6 +44,7 @@ taxcounts <- seqtab %>%
 
 ```{r}
 taxcounts.phyl <- taxcounts %>%
+  mutate(Phylum = ifelse(is.na(Phylum), paste("Unclassified", Kingdom), Phylum)) %>%
   group_by(sample, Phylum) %>%
   summarise(count = sum(count)) 
 
@@ -127,12 +129,16 @@ getsampord %>%
 ```
 
 ```{r}
+getPalette <- colorRampPalette(brewer.pal(8, "Dark2"))
+phyls <- unique(taxcounts.phyl$Phylum)
+
 taxcounts.phyl %>%
   mutate(seqtype = ifelse(grepl("-C", sample), "RNA", "DNA")) %>%
   filter(seqtype == "DNA" & !grepl("ABNEG", sample) & grepl("-I", sample)) %>%
   left_join(getsampord) %>%
   ggplot(aes(x = fct_relevel(sample, rev(getsampord$sample)), y = count, fill = Phylum)) +
   geom_col(position = "fill") +
+  scale_fill_manual(breaks = phyls, values = getPalette(length(phyls))) + 
   labs(x = "", y = "") +
   theme_bw() +
   theme(axis.text.x = element_blank()) +
