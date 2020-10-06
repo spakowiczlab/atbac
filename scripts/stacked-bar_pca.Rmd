@@ -44,7 +44,7 @@ taxcounts <- seqtab %>%
 
 ```{r}
 taxcounts.phyl <- taxcounts %>%
-  mutate(Phylum = ifelse(is.na(Phylum), paste("Unclassified", Kingdom), Phylum)) %>%
+  mutate(Phylum = ifelse(is.na(Phylum), "Unclassified", Phylum)) %>%
   group_by(sample, Phylum) %>%
   summarise(count = sum(count)) 
 
