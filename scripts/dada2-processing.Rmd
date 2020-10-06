@@ -112,7 +112,7 @@ sum(seqtab.nochim)/sum(seqtab)
 # Assign taxonomy
 ```{r}
 seqtab.nochim <- readRDS("../data/seqtabNoC_update.RDS")
-taxa <- assignTaxonomy(seqtab.nochim, "../../../db/dada2/rdp_train_set_14.fa.gz")
+taxa <- assignTaxonomy(seqtab.nochim, "../../../db/dada2/silva_nr_v123_train_set.fa.gz")
 unname(head(taxa))
 
 saveRDS(taxa, "../data/tax_update.RDS")
