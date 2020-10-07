@@ -17,7 +17,7 @@ d <- read.csv("../data/DESeq2_all-levs_DNA.csv")
 
 ```{r}
 d %>%
-  filter(padj < 0.8) %>%
+  filter(padj < 0.9) %>%
   mutate(dir = ifelse(log2FoldChange > 0, "pos", "neg")) %>%
   filter(!grepl("Eukaryota|Sphingomonadaceae", Taxa)) %>%
   ggplot(aes(x = log2FoldChange, y = reorder(Taxa, log2FoldChange))) +
