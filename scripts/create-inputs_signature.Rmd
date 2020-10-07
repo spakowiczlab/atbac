@@ -1,0 +1,173 @@
+---
+title: "Prepare reference samples for CIBERSORT"
+author: "Rebecca Hoyd"
+date: "March 13, 2019"
+output: html_document
+---
+
+This document will generate the files needed to run CIBERSORT. These files are a reference sample file, which is a tab delimited text file of counts where rows are HUGO coded genes and columns are samples. The second is a phenotype class table which provides a key for which samples correspond to which cell type.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(install.load)
+list.of.packages <- c("tidyverse", "readxl")
+install_load(list.of.packages)
+```
+
+```{r load data}
+sampleset1 <- read_excel("../../raw_files/ampliseq_whole_transcriptome_366_counts_bcma.xls")
+
+samplesum1 <- read_excel("../../raw_files/ampliseq_whole_transcriptome_366_summary.xls")
+
+sampleset2 <- read_excel("../../raw_files/ionproton_251_counts_bcma.xls")
+
+samplesum2 <- read_excel("../../raw_files/ionproton_251_summary.xls")
+
+names(samplesum1) <- make.names(names(samplesum1))
+names(samplesum2) <- make.names(names(samplesum2))
+
+samplesum1$Sample.Name <- make.names(samplesum1$Sample.Name)
+samplesum2$Sample.Name <- make.names(samplesum2$Sample.Name)
+
+#So, numnber 135 has two blood neutrophil reads, but 136 is missing theirs. This seemed reasonable.
+samplesum2$Sample.Name[8] <- "X136.Bld.Neut"
+
+lm22ref <- read.table("../../raw_files/LM22-ref-sample.txt", sep = "\t", header = TRUE, row.names = 1)
+lm22class <- read.table("../../raw_files/LM22-classes.txt", sep = "\t", row.names = 1)
+
+```
+
+
+```{r replace ion barcodes with sample names}
+sampleset1 <- sampleset1 %>%
+  select(-Target,-IonXpress_022, -IonXpress_021)
+
+samplesum1 <- samplesum1[1:8, ] 
+
+colnames(sampleset1) <- c("Gene", samplesum1$Sample.Name)
+
+
+sampleset2 <- sampleset2 %>%
+  select(-Target)
+
+colnames(sampleset2) <- c("Gene", samplesum2$Sample.Name)
+```
+
+```{r}
+oursamps <- full_join(sampleset1, sampleset2)
+
+customref <- lm22ref %>%
+  rownames_to_column(var = "Gene") %>%
+  inner_join(.,oursamps)
+
+
+customref <- subset(customref, !is.na(customref$X154_V.Neut))
+```
+
+```{r}
+colnames(oursamps)
+
+bld.neut <- ifelse(grepl("B", colnames(oursamps)), 1, 2)
+v.neut <- ifelse(grepl("V", colnames(oursamps)), 1, 2)
+
+bld.neut <- bld.neut[-1]
+v.neut <- v.neut[-1]
+
+tryjustneuts <- as.data.frame(rbind(blood.neutrophil = bld.neut, viscera.neutrophil = v.neut)) %>%
+  rownames_to_column(var = "refcelltype")
+
+oursamps <- inner_join(sampleset1, sampleset2)
+
+hold <- lm22class[22,]
+
+bld.neut <- c(hold, bld.neut) %>%
+  bind_cols()
+v.neut <- c(hold, v.neut) %>%
+  bind_cols()
+
+customphen <- lm22class
+increase <- rep(0, 22)
+for(i in 1:30){
+customphen <- cbind(customphen, increase)
+}
+
+colnames(bld.neut) <- colnames(customphen)
+colnames(v.neut) <- colnames(customphen)
+
+customphen <- rbind(customphen, bld.neut, v.neut)
+
+rownames(customphen)[23] <- "Blood neutrophil"
+rownames(customphen)[24] <- "V neutrophil"
+
+customphen <- customphen[-22,] %>%
+  rownames_to_column(var = "refcelltype")
+```
+
+```{r}
+write.table(customref, "../../ciberin/custom_reference_seqs.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+write.table(customphen, "../../ciberin/custom_phenotype_class.txt", sep =  "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+```
+
+```{r}
+write.table(oursamps, "../../ciberin/neuts-only_reference_seqs.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+write.table(tryjustneuts, "../../ciberin/neuts-only_phenotype_class.txt", sep =  "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+```
+
+
+# Recreate the signatures, splitting into samples from lean and obese individuals
+
+
+```{r}
+
+bld.neut.o <- ifelse(grepl("B", colnames(oursamps)) & !grepl("\\dL", colnames(oursamps)), 1, 2)
+bld.neut.l <- ifelse(grepl("B", colnames(oursamps)) & grepl("\\dL", colnames(oursamps)), 1, 2)
+
+v.neut.o <- ifelse(grepl("V", colnames(oursamps)) & !grepl("\\dL", colnames(oursamps)), 1, 2)
+v.neut.l <- ifelse(grepl("V", colnames(oursamps)) & grepl("\\dL", colnames(oursamps)), 1, 2)
+
+bld.neut.o <- bld.neut.o[-1]
+bld.neut.l <- bld.neut.l[-1]
+v.neut.o <- v.neut.o[-1]
+v.neut.l <- v.neut.l[-1]
+
+oursamps <- inner_join(sampleset1, sampleset2)
+
+hold <- lm22class[22,]
+
+bld.neut.o <- c(hold, bld.neut.o) %>%
+  bind_cols()
+v.neut.o <- c(hold, v.neut.o) %>%
+  bind_cols()
+bld.neut.l <- c(hold, bld.neut.l) %>%
+  bind_cols()
+v.neut.l <- c(hold, v.neut.l) %>%
+  bind_cols()
+
+customphen <- lm22class
+increase <- rep(0, 22)
+for(i in 1:30){
+customphen <- cbind(customphen, increase)
+}
+
+colnames(bld.neut.o) <- colnames(customphen)
+colnames(v.neut.o) <- colnames(customphen)
+colnames(bld.neut.l) <- colnames(customphen)
+colnames(v.neut.l) <- colnames(customphen)
+
+customphen <- rbind(customphen, bld.neut.o, bld.neut.l, v.neut.o, v.neut.l)
+
+rownames(customphen)[23] <- "Blood.neut.O"
+rownames(customphen)[24] <- "Blood.neut.L"
+rownames(customphen)[25] <- "V.neut.O"
+rownames(customphen)[26] <- "V.neut.L"
+
+customphen <- customphen[-22,] %>%
+  rownames_to_column(var = "refcelltype")
+```
+
+```{r}
+write.table(customphen, "../../ciberin/custom_phenotype_class_with-obesity.txt", sep =  "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+```

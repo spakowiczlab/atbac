@@ -1,0 +1,117 @@
+---
+title: "Investigation of signature gene traits"
+author: "Rebecca Hoyd"
+date: "March 19, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# source('https://bioconductor.org/biocLite.R')
+# biocLite('org.Hs.eg.db')
+
+library(install.load)
+
+install_load(c("tidyverse", "forcats", "gplots", "org.Hs.eg.db", "flextable"))
+```
+
+```{r}
+sig.genes <- read.table("../../ciber_results/custom_signature_genes_bmi_ignore.txt", header = TRUE, sep = "\t")
+
+davidresblood <- read.table("../../ciber_results/DAVID-results_blood_bmi-ignore.txt", sep = "\t")
+
+davidresat <- read.table("../../ciber_results/DAVID-results_at_bmi-ignore.txt", sep = "\t")
+```
+
+# Heatmap of signal genes
+```{r}
+genenames <- sig.genes$NAME
+
+genemat <- as.matrix(sig.genes[,-1])
+rownames(genemat) <- genenames
+genemat <- t(genemat)
+
+scaleyellowred <- colorRampPalette(c("lightyellow", "red"), space = "rgb")(100)
+
+heatmap.2(genemat, col = scaleyellowred, dendrogram = "row", trace = "none", labCol = rep("", length(colnames(genemat))))
+```
+
+
+# Infering pathways from most prevalent genes
+```{r}
+findgenes <- sig.genes %>%
+  dplyr::select(NAME, Blood.neutrophil, V.neutrophil) %>%
+  mutate(difference = Blood.neutrophil - V.neutrophil)
+
+hist(findgenes$difference)
+```
+
+
+```{r}
+enriched.blood <- findgenes %>%
+  arrange(desc(difference))
+
+enriched.blood <- enriched.blood[1:10, ]
+
+enriched.at <- findgenes %>%
+  arrange(difference)
+
+enriched.at<- enriched.at[1:10, ]
+
+
+mostenriched <- bind_rows(enriched.blood, enriched.at)
+mostenriched$celltype <- ifelse(mostenriched$difference > 0, "blood", "at")
+
+ggplot(mostenriched, aes(x = reorder(NAME, difference), y = difference)) +
+  geom_col(aes(fill = celltype)) +
+  scale_fill_manual(breaks = c("at", "blood"), values = c("orange", "darkred")) +
+  labs(title = "Greatest differences between blood and adipose tissue neutrophil \nsignal genes", x = "Entrez Gene ID", y = "Difference in signal gene counts") +
+  coord_flip() +
+  theme_bw()
+```
+
+We are now interested in what pathways can be inferred from the genes that are enriched in blood and AT neutrophils. To dicover this, we must filter to interesting genes, convert gene names to symbols (I will use Entrez ID symbols for this), and create a file to upload to DAVID, which will run the analysis. I have already run this process and the tables that result are outputted below, after code that shows how the list of gene ID's was prepared.
+
+```{r}
+int.blood <- findgenes %>%
+  filter(difference > 2000)
+
+int.at <- findgenes %>%
+  filter(difference < -2000)
+
+
+int.blood.id <- mapIds(org.Hs.eg.db, as.character(int.blood$NAME), 'ENTREZID', 'SYMBOL')
+int.at.id <- mapIds(org.Hs.eg.db, as.character(int.at$NAME), 'ENTREZID', 'SYMBOL')
+
+int.blood.id <- unname(int.blood.id)
+int.at.id <- unname(int.at.id)
+```
+
+```{r, eval = FALSE}
+write.table(int.blood.id, sep = "\n", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+write.table(int.at.id, sep = "\n", col.names = FALSE, row.names = FALSE, quote = FALSE)
+```
+
+
+DAVID results for pathways enriched in blood neutrophils:
+```{r}
+davidresblood <- lapply(davidresblood, function(x) x <- as.character(x))
+names(davidresblood) <- lapply(davidresblood, function(x) x[1])
+davidresblood <- bind_cols(davidresblood)
+davidresblood <- davidresblood[-1,] %>%
+  flextable()
+davidresblood
+```
+
+DAVID results for pathways enriched in AT neutrophils:
+
+```{r}
+davidresat <- lapply(davidresat, function(x) x <- as.character(x))
+names(davidresat) <- lapply(davidresat, function(x) x[1])
+davidresat <- bind_cols(davidresat)
+davidresat <- davidresat[-1,] %>%
+  flextable()
+davidresat
+```

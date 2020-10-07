@@ -1,0 +1,117 @@
+---
+title: "investigte-singature-genes_with-obesity"
+author: "Rebecca Hoyd"
+date: "March 20, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# source('https://bioconductor.org/biocLite.R')
+# biocLite('org.Hs.eg.db')
+
+library(install.load)
+
+install_load(c("tidyverse", "forcats", "gplots", "org.Hs.eg.db", "flextable", "ggdendro"))
+```
+
+```{r}
+sig.genes <- read.table("C:/Users/hoyd02/Box Sync/atneusig/CIBERSORT/ciber_results/custom-signature-genes_with-obesity.txt", header = TRUE, sep = "\t")
+
+```
+
+# Heatmap of signal genes
+```{r}
+genenames <- sig.genes$NAME
+
+genemat <- as.matrix(sig.genes[,-1])
+rownames(genemat) <- genenames
+genemat <- t(genemat)
+
+scaleyellowred <- colorRampPalette(c("lightyellow", "red"), space = "rgb")(100)
+
+heatmap.2(genemat, col = scaleyellowred, dendrogram = "row", trace = "none", labCol = rep("", length(colnames(genemat))))
+```
+
+
+## Add dendrogram to show clustering
+
+```{r}
+oldlabs <- rownames(genemat)
+
+oldlabs
+
+newlabs <- c("Naive B Cells", "Memory B Cells", "Plasma Cells", "CD8 T Cells", "Naive CD4 T Cells", "Resting Memory CD4 T Cells", "Activated Memory CD4 T Cells", "Follicular Helper T Cells", "Gamma Delta T Cells", "Regulatory T Cells", "Resting NK Cells", "Activated NK Cells", "Monocytes", "M0 Macrophages", "M1 Macrophages", "M2 Macrophages", "Resting Dendritic Cells", "Activated Dendritic Cells","Resting Mast Cells", "Activated Mast Cells", "Eosonophils", "Peripheral Blood Neutrophils (Obese)", "Peripheral Blood Neutrophils (Lean)", "Visceral AT Neutrophils (Obese)", "Visceral AT neutrophils (Lean")
+
+rownames(genemat) <- newlabs
+a <- dist(genemat)
+b <- hclust(a)
+d <- dendro_data(b)
+labs <- label(d)
+labs$groups <- c(rep("not", 2), rep("yes", 4), rep("not", 19))
+ggdendrogram(d)  +
+  ggsave("../../figures/dendro_bmi-clustering.png")
+  
+# nettest <- cmdscale(a, k = 2)
+# plot(-nettest)
+```
+
+
+# Infering pathways from most prevalent genes
+```{r}
+findgenes <- sig.genes %>%
+  dplyr::select(NAME, Blood.neut.O, Blood.neut.L, V.neut.O, V.neut.L) %>%
+  mutate(blood.dif = Blood.neut.O- Blood.neut.L) %>%
+  mutate(at.dif = V.neut.O - V.neut.L)
+
+hist(findgenes$blood.dif)
+hist(findgenes$at.dif)
+```
+
+
+```{r}
+enriched.blood.o <- findgenes %>%
+  arrange(desc(blood.dif))
+
+enriched.blood.o <- enriched.blood.o[1:10, ]
+
+enriched.blood.l <- findgenes %>%
+  arrange(blood.dif)
+
+enriched.blood.l <- enriched.blood.l[1:10, ]
+
+enriched.blood <- bind_rows(enriched.blood.l, enriched.blood.o)
+enriched.blood$celltype <- ifelse(enriched.blood$blood.dif > 0, "obese", "lean")
+
+enriched.at.o <- findgenes %>%
+  arrange(desc(at.dif))
+
+enriched.at.o <- enriched.at.o[1:10, ]
+
+enriched.at.l <- findgenes %>%
+  arrange(at.dif)
+
+enriched.at.l <- enriched.at.l[1:10, ]
+
+enriched.at <- bind_rows(enriched.at.l, enriched.at.o)
+enriched.at$celltype <- ifelse(enriched.at$at.dif > 0, "obese", "lean")
+
+ggplot(enriched.blood, aes(x = reorder(NAME, blood.dif), y = blood.dif)) +
+  geom_col(aes(fill = celltype)) +
+  scale_fill_manual(breaks = c("lean", "obese"), values = c("orange", "darkred")) +
+  labs(title = "Greatest differences between lean and obese blood neutrophil \nsignal genes", x = "Gene Symbol", y = "Difference in signal gene counts") +
+  coord_flip() +
+  theme_bw()
+```
+
+```{r}
+ggplot(enriched.at, aes(x = reorder(NAME, at.dif), y = at.dif)) +
+  geom_col(aes(fill = celltype)) +
+  scale_fill_manual(breaks = c("lean", "obese"), values = c("darkred", "darkgreen"),
+                    labels = c("Lean", "Obese"), name = "BMI status") +
+  labs(title = "", x = "Gene Symbol", y = "Difference in signal gene counts") +
+  coord_flip() +
+  theme_bw() +
+  ggsave("../figures/barplot_enriched-genes_at-lean-obese.pdf")
+```

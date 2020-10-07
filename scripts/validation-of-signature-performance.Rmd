@@ -1,0 +1,192 @@
+---
+title: "Testing the signature genes"
+author: "Rebecca Hoyd"
+date: "March 19, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(install.load)
+
+install_load(c("dplyr", "tidyr", "ggplot2", "RColorBrewer", "forcats"))
+```
+
+```{r load data}
+bloodres <- read.csv("../../ciber_results/results_test-blood_bmi-ignore.csv")
+
+atres <- read.csv("../../ciber_results/results_test-at_bmi-ignore.csv")
+
+bloodresobes <- read.csv("../../ciber_results/results_test-blood-obesity_bmi-ignore.csv")
+
+atresobes <- read.csv("../../ciber_results/results_test-at-obesity_bmi-ignore.csv")
+```
+
+In this document, we will be displaying the results of using our custom signature genes on blood and adipose tissue samples borrowed from NCBI. 
+
+The whole blood samples are from a study calle Mild Plasmodium falciparum Malaria following an Episode of Severe Malaria Is Associated with Induction of the Interferon Pathway in Malawian Children. The samples were processed using rma, or robust multi-array analysis, and then normalized using quantile normalization. This is the normalization CIBERSORT usually does automatically, so it must be disabled when running the tool.
+
+The adipose tissue sample was from a study called An early inflammatory gene profile in visceral adipose tissue in children. This data was also processed with rma, but had not gone through quantile normalization. As such, CIBERSORT could be run without any additional manipulations
+
+In summary of the results, our custom signatures behaved as desired. The tool found more visceral neutrophils in the adipose tissue that the blood, and did not find blood neutrophils in the adipose tissue. It is not shown here, but the p-values measuring fit accross samples were consistenly below 0.05. The Pearson-Correlation hovered around .4-.8 for the blood and were lower, at about 0.05 to 0.3, for the adipose tissue.
+
+### Manipulate data to set up for plots
+```{r}
+bloodres <- bloodres %>%
+  dplyr::select(-P.value, -Pearson.Correlation,-RMSE) %>%
+  gather(-Input.Sample, key = "Cell.Type", value = "predicted.proportion")
+  
+atres <- atres %>%
+  dplyr::select(-P.value, -Pearson.Correlation,-RMSE) %>%
+  gather(-Input.Sample, key = "Cell.Type", value = "predicted.proportion")
+```
+
+# Heatmaps of predicted proportions
+```{r}
+bloodres %>%
+  ggplot(aes(fct_relevel(Cell.Type, "Blood.neutrophil", "V.neutrophil"), Input.Sample)) +
+  geom_tile(aes(fill = predicted.proportion)) +
+  geom_text(aes(label = round(predicted.proportion, 2)), size = 2) +
+  scale_fill_distiller(type = "div", palette = "RdBu", breaks = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), values = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), guide = "legend", name = "Predicted Proportion") +
+  labs(title = "Results from testing signature genes on blood samples", x = "", y = "") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle=45, hjust=1), axis.text.y = element_blank())
+```
+
+```{r}
+atres %>%
+  ggplot(aes(fct_relevel(Cell.Type, "Blood.neutrophil", "V.neutrophil"), Input.Sample)) +
+  geom_tile(aes(fill = predicted.proportion)) +
+  geom_text(aes(label = round(predicted.proportion, 2)), size = 2) +
+  scale_fill_distiller(type = "div", palette = "RdBu", breaks = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), values = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), guide = "legend") +
+  labs(title = "Results from testing signature genes on AT sample", x = "Cell Type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+
+# Stacked bar charts of predicted proportions
+```{r}
+atres <- atres %>%
+  mutate(samplesource = "AT samples")
+bloodres <- bloodres %>%
+  mutate(samplesource = "Blood samples")
+
+bardata <- bind_rows(atres, bloodres)
+
+
+forinter <- brewer.pal(9, "Set1")
+getPalette = colorRampPalette(colors = forinter)
+
+bardata %>%
+  ggplot(aes(x = Input.Sample, y = predicted.proportion, fill = fct_relevel(Cell.Type, "Blood.neutrophil", "V.neutrophil"))) +
+  facet_wrap(aes(samplesource), scales = "free") +
+  geom_col(position = "fill", stat = "identity") +
+  scale_fill_manual(values = getPalette(23), name = "Cell type") +
+  labs(title = "Percentages of samples determined to be each cell type for blood samples")+
+  theme_bw() +
+  theme(axis.text.x = element_blank(), legend.key.size = unit(.3, "cm"))
+
+```
+
+
+# Boxplot of neutrophil type in different samples
+
+```{r}
+bld.box <- bloodres %>%
+  filter(Cell.Type == "Blood.neutrophil" | Cell.Type == "V.neutrophil") %>%
+  mutate(tissue = "blood")
+
+at.box <- atres %>%
+  filter(Cell.Type == "Blood.neutrophil" | Cell.Type == "V.neutrophil") %>%
+  mutate(tissue = "at")
+
+allbox <- bind_rows(bld.box, at.box)
+```
+
+```{r}
+allbox <- allbox %>%
+  filter(Cell.Type == "V.neutrophil")
+
+ggplot(data = allbox, aes(x = tissue, y = predicted.proportion)) +
+  geom_boxplot() +
+  geom_point() +
+  labs(title = "Predicted percentage of v. neutrophils in each tissue type", x = "Tissue samples", y = "Predicted percentage of sample") +
+  scale_x_discrete(breaks = c("at", "blood"), labels = c("Adipose Tisse", "Whole Blood Sample")) +
+  theme_bw()
+```
+
+#Recreation of heamaps for new sample sets 
+
+### Manipulate data to set up for plots
+```{r}
+bloodresobes <- bloodresobes %>%
+  select(-P.value, -Pearson.Correlation,-RMSE) %>%
+  gather(-Input.Sample, key = "Cell.Type", value = "predicted.proportion")
+  
+atresobes <- atresobes %>%
+  select(-P.value, -Pearson.Correlation,-RMSE) %>%
+  gather(-Input.Sample, key = "Cell.Type", value = "predicted.proportion")
+
+oldlabs <- unique(bloodresobes$Cell.Type)
+
+oldlabs
+newlabs <- c("Naive B Cells", "Memory B Cells", "Plasma Cells", "CD8 T Cells", "Naive CD4 T Cells", "Resting Memory CD4 T Cells", "Activated Memory CD4 T Cells", "Follicular Helper T Cells", "Gamma Delta T Cells", "Regulatory T Cells", "Resting NK Cells", "Activated NK Cells", "Monocytes", "M0 Macrophages", "M1 Macrophages", "M2 Macrophages", "Resting Dendritic Cells", "Activated Dendritic Cells","Resting Mast Cells", "Activated Mast Cells", "Eosonophils", "Peripheral Blood Neutrophils", "Visceral AT Neutrophils")
+
+celltypes <- as.data.frame(cbind(Cell.Type = oldlabs, newlabs))
+
+bloodresobes <- bloodresobes %>%
+  left_join(celltypes)
+atresobes <- atresobes %>%
+  left_join(celltypes)
+```
+
+```{r}
+bloodresobes %>%
+  ggplot(aes(fct_relevel(newlabs, "Peripheral Blood Neutrophils", "Visceral AT Neutrophils"), Input.Sample)) +
+  geom_tile(aes(fill = predicted.proportion)) +
+  geom_text(aes(label = round(predicted.proportion, 2)), size = 2) +
+  scale_fill_distiller(type = "div", palette = "RdBu", breaks = c(1, .75, .50, .40, .30, .20, .10, .01, 0), values = c(1, .75, .50, .40, .30, .20, .10, .01, 0), direction = 1, guide = "legend", name = "Predicted Cell Type Proportion \n in Peripheral Blood Samples") +
+  labs(x = "", y = "") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1), axis.text.y = element_blank(), axis.ticks.y = element_blank(), plot.margin = unit(c(0,0,0,1), units = "in")) +
+  ggsave("../../figures/tile_test-blood.png")
+```
+
+```{r}
+atresobes %>%
+  ggplot(aes(fct_relevel(newlabs, "Peripheral Blood Neutrophils", "Visceral AT Neutrophils"), Input.Sample)) +
+  geom_tile(aes(fill = predicted.proportion)) +
+  geom_text(aes(label = round(predicted.proportion, 2)), size = 2) +
+  scale_fill_distiller(type = "div", palette = "RdBu", breaks = c(1, .75, .50, .40, .30, .20, .10, .01, 0), values = c(1, .75, .50, .40, .30, .20, .10, .01, 0), guide = "legend", direction = 1, name = "Predicted Cell Type Proportion \n in Visceral AT Samples") +
+  theme_bw() +
+  labs(x = "", y = "") +
+  theme(axis.text.x = element_text(angle=45, hjust=1), axis.text.y = element_blank(), axis.ticks.y = element_blank(), plot.margin = unit(c(0,0,0,1), units = "in"))+
+  ggsave(filename = "../../figures/tile_test-at.png", height = 5, width = 9)
+
+```
+
+```{r}
+atresobes <- atresobes %>%
+  mutate(samplesource = "AT samples")
+bloodresobes <- bloodresobes %>%
+  mutate(samplesource = "Blood samples")
+
+bardata <- bind_rows(atresobes, bloodresobes)
+
+
+forinter <- brewer.pal(9, "Set1")
+getPalette = colorRampPalette(colors = forinter)
+
+bardata %>%
+  ggplot(aes(x = Input.Sample, y = predicted.proportion, fill = fct_relevel(Cell.Type, "Blood.neutrophil", "V.neutrophil"))) +
+  facet_wrap(aes(samplesource), scales = "free") +
+  geom_col(position = "fill", stat = "identity") +
+  scale_fill_manual(values = getPalette(23), name = "Cell type") +
+  labs(title = "Percentages of samples determined to be each cell type for new samples")+
+  theme_bw() +
+  theme(axis.text.x = element_blank(), legend.key.size = unit(.3, "cm"))
+
+```
+

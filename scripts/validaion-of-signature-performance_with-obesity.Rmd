@@ -1,0 +1,141 @@
+---
+title: "Testing signature genese performance when considering obesity"
+author: "Rebecca Hoyd"
+date: "March 20, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(install.load)
+
+install_load(c("tidyverse", "RColorBrewer", "forcats"))
+```
+
+```{r load data}
+bloodres <- read.csv("../../ciber_results/results_test-blood_with-obesity.csv")
+
+atres <- read.csv("../../ciber_results/results_test-at_with-obesity.csv")
+
+bloodresobes <- read.csv("../../ciber_results/results_test-blood-obesity_with-obesity.csv")
+
+atresobes <- read.csv("../../ciber_results/results_test-at-obesity_with-obesity.csv")
+```
+
+In this document, we will be displaying the results of using our custom signature genes on blood and adipose tissue samples borrowed from NCBI. In this case we will be showing how the genes perform when the body mass of subjects is considered. We are using the same testing samples as before. 
+
+
+### Manipulate data to set up for plots
+```{r}
+bloodres <- bloodres %>%
+  select(-P.value, -Pearson.Correlation,-RMSE) %>%
+  gather(-Input.Sample, key = "Cell.Type", value = "predicted.proportion")
+  
+atres <- atres %>%
+  select(-P.value, -Pearson.Correlation,-RMSE) %>%
+  gather(-Input.Sample, key = "Cell.Type", value = "predicted.proportion")
+```
+
+# Heatmaps of predicted proportions
+```{r}
+bloodres %>%
+  ggplot(aes(fct_relevel(Cell.Type, "Blood.neut.L","Blood.neut.O", "V.neut.L", "V.neut.O"), Input.Sample)) +
+  geom_tile(aes(fill = predicted.proportion)) +
+  geom_text(aes(label = round(predicted.proportion, 2)), size = 2) +
+  scale_fill_distiller(type = "div", palette = "RdBu", breaks = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), values = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), guide = "legend") +
+  labs(title = "Results from testing signature genes on blood sample", x = "Cell Type") +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+```{r}
+atres %>%
+  ggplot(aes(fct_relevel(Cell.Type, "Blood.neut.L","Blood.neut.O", "V.neut.L", "V.neut.O"), Input.Sample)) +
+  geom_tile(aes(fill = predicted.proportion)) +
+  geom_text(aes(label = round(predicted.proportion, 2)), size = 2) +
+  scale_fill_distiller(type = "div", palette = "RdBu", breaks = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), values = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), guide = "legend") +
+  labs(title = "Results from testing signature genes on AT sample", x = "Cell Type") +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+
+# Stacked bar charts of predicted proportions
+```{r}
+atres <- atres %>%
+  mutate(samplesource = "AT samples")
+bloodres <- bloodres %>%
+  mutate(samplesource = "Blood samples")
+
+bardata <- bind_rows(atres, bloodres)
+
+
+forinter <- brewer.pal(9, "Set1")
+getPalette = colorRampPalette(colors = forinter)
+
+bardata %>%
+  ggplot(aes(x = Input.Sample, y = predicted.proportion, fill = fct_relevel(Cell.Type, "Blood.neut.L","Blood.neut.O", "V.neut.L", "V.neut.O"))) +
+  facet_wrap(aes(samplesource), scales = "free") +
+  geom_col(position = "fill", stat = "identity") +
+  scale_fill_manual(values = getPalette(25), name = "Cell type") +
+  labs(title = "Percentages of samples determined to be each cell type for both samples")+
+  theme_bw() +
+  theme(axis.text.x = element_blank(), legend.key.size = unit(.3, "cm"))
+
+```
+
+
+#Recreation of heamaps for new sample sets 
+
+### Manipulate data to set up for plots
+```{r}
+bloodresobes <- bloodresobes %>%
+  select(-P.value, -Pearson.Correlation,-RMSE) %>%
+  gather(-Input.Sample, key = "Cell.Type", value = "predicted.proportion")
+  
+atresobes <- atresobes %>%
+  select(-P.value, -Pearson.Correlation,-RMSE) %>%
+  gather(-Input.Sample, key = "Cell.Type", value = "predicted.proportion")
+```
+
+```{r}
+bloodresobes %>%
+  ggplot(aes(fct_relevel(Cell.Type, "Blood.neut.L","Blood.neut.O", "V.neut.L", "V.neut.O"), Input.Sample)) +
+  geom_tile(aes(fill = predicted.proportion)) +
+  geom_text(aes(label = round(predicted.proportion, 2)), size = 2) +
+  scale_fill_distiller(type = "div", palette = "RdBu", breaks = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), values = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), guide = "legend") +
+  labs(title = "Results from testing signature genes on new blood sample", x = "Cell Type") +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+```{r}
+atresobes %>%
+  ggplot(aes(fct_relevel(Cell.Type, "Blood.neut.L","Blood.neut.O", "V.neut.L", "V.neut.O"), Input.Sample)) +
+  geom_tile(aes(fill = predicted.proportion)) +
+  geom_text(aes(label = round(predicted.proportion, 2)), size = 2) +
+  scale_fill_distiller(type = "div", palette = "RdBu", breaks = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), values = c(0,0.01,0.01,0.1,0.2,0.3,0.4,0.5,0.75,1), guide = "legend") +
+  labs(title = "Results from testing signature genes on new AT sample", x = "Cell Type") +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+```{r}
+atresobes <- atresobes %>%
+  mutate(samplesource = "AT samples")
+bloodresobes <- bloodresobes %>%
+  mutate(samplesource = "Blood samples")
+
+bardata <- bind_rows(atresobes, bloodresobes)
+
+
+forinter <- brewer.pal(9, "Set1")
+getPalette = colorRampPalette(colors = forinter)
+
+bardata %>%
+  ggplot(aes(x = Input.Sample, y = predicted.proportion, fill = fct_relevel(Cell.Type, "Blood.neut.L","Blood.neut.O", "V.neut.L", "V.neut.O"))) +
+  facet_wrap(aes(samplesource), scales = "free") +
+  geom_col(position = "fill", stat = "identity") +
+  scale_fill_manual(values = getPalette(27), name = "Cell type") +
+  labs(title = "Percentages of samples determined to be each cell type for new samples")+
+  theme_bw() +
+  theme(axis.text.x = element_blank(), legend.key.size = unit(.3, "cm"))
+
+```

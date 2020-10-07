@@ -1,0 +1,242 @@
+---
+title: "Create test mixture files for custom signature genes"
+author: "Rebecca Hoyd"
+date: "March 18, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+# source("http://www.bioconductor.org/biocLite.R")
+# biocLite("GEOquery")
+# biocLite("hgu133plus2.db")
+
+library(dplyr)
+library(Biobase)
+library(GEOquery)
+library(tidyr)
+library(org.Hs.eg.db)
+library(annotate)
+library(magrittr)
+library(tibble)
+library(hgu133plus2.db)
+```
+
+
+```{r}
+bloodtest <- getGEO(filename = "../../raw_files/GDS4259_full_blood.soft.gz")
+
+blood.1 <- Table(bloodtest)
+
+attest <- getGEO(filename = "../../raw_files/GDS4276_full_at.soft.gz")
+
+at.1 <- Table(attest)
+
+exercise <- getGEO(filename = "../../raw_files/reference-seqs_exercise.soft.gz")
+
+exercise.1 <- Table(exercise)
+
+sepsis <- getGEO(filename = "../../raw_files/GSE64457_series_matrix_sepsis-neuts.txt.gz")
+
+endotox <- getGEO(filename = "../../raw_files/reference-seqs_endotoxin.soft.gz")
+
+endotox.1 <- Table(endotox)
+
+blood.obes <- getGEO(filename = "../../raw_files/test_blood_obesity.soft.gz")
+blood.obes.1 <- Table(blood.obes)
+
+
+at.obes <- getGEO(filename = "../../raw_files/test_at_obesity_matrix.txt")
+
+```
+
+# Neturophils from Blood
+```{r}
+head(blood.1)[1:5]
+
+blood.2 <- blood.1 %>%
+  dplyr::select(`Gene symbol`, contains("GSM")) %>%
+  filter(`Gene symbol` != "")
+
+blood.2 <- subset(blood.2, !is.na(blood.2$GSM836195))
+```
+
+```{r}
+blood.3 <- blood.2 %>%
+  separate(`Gene symbol`, c("Gene.ID", "Gene.ID2"), sep = "///") %>%
+  dplyr::select(-Gene.ID2)
+
+blood.3 <- subset(blood.3, !grepl("LOC", blood.3$Gene.ID))
+blood.3 <- subset(blood.3, !is.na(blood.3$Gene.ID))
+
+```
+
+```{r}
+write.table(blood.3, "../../ciberin/test-sigs_blood.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+```
+
+# Neutrophils from AT
+```{r}
+
+at.2 <- at.1 %>%
+  select(`Gene symbol`, contains("GSM")) %>%
+  filter(`Gene symbol` != "")
+
+at.2 <- subset(at.2, !is.na(at.2$GSM737030))
+```
+
+```{r}
+at.3 <- at.2 %>%
+  separate(`Gene symbol`, c("Gene.ID", "Gene.ID2"), sep = "///") %>%
+  select(-Gene.ID2)
+
+at.3 <- subset(at.3, !grepl("LOC", at.3$Gene.ID))
+at.3 <- subset(at.3, !is.na(at.3$Gene.ID))
+
+```
+
+```{r}
+write.table(at.3, "../../ciberin/test-sigs_at.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+```
+
+# Neutrophils given exercise
+```{r}
+head(exercise.1)[1:5]
+
+exercise.2 <- exercise.1 %>%
+  dplyr::select(`Gene symbol`, contains("GSM")) %>%
+  filter(`Gene symbol` != "")
+
+exercise.2 <- subset(exercise.2, !is.na(exercise.2$GSM214982))
+```
+
+```{r}
+exercise.3 <- exercise.2 %>%
+  separate(`Gene symbol`, c("Gene.ID", "Gene.ID2"), sep = "///") %>%
+  dplyr::select(-Gene.ID2)
+
+exercise.3 <- subset(exercise.3, !grepl("LOC", exercise.3$Gene.ID))
+exercise.3 <- subset(exercise.3, !is.na(exercise.3$Gene.ID))
+
+controls <- colnames(exercise.3)
+controls <- controls[grep("0$|2$|4$|6$|8$", controls)]
+
+exercise.3 <- exercise.3 %>%
+  dplyr::select(-controls)
+```
+
+```{r}
+write.table(exercise.3, "../../ciberin/test-neuts_exercise.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+```
+
+# Neutrophils from patients with sepsis
+```{r}
+ID <- featureNames(sepsis)
+GS <- mapIds(hgu133plus2.db, keys = ID, c("SYMBOL"), keytype = "PROBEID")
+GS <- as.data.frame(GS) %>%
+  rownames_to_column(var = "Gene.ID")
+colnames(GS)[2] <- "Gene.Symbol"
+
+sepsis.1 <- exprs(sepsis) %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene.ID") %>%
+  right_join(GS, .) %>%
+  dplyr::select(-Gene.ID) %>%
+  filter(!is.na(Gene.Symbol))
+
+```
+
+```{r}
+write.table(sepsis.1, "../../ciberin/test-neuts_sepsis.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+```
+
+
+# Neutrophils from patients given endotoxin
+```{r}
+endotox.2 <- endotox.1 %>%
+  dplyr::select(`Gene symbol`, contains("GSM")) %>%
+  filter(`Gene symbol` != "")
+
+y <- rowSums(endotox.2[,-1])
+subset(y, is.na(y))
+```
+
+```{r, eval = FALSE}
+endotox.3 <- endotox.2 %>%
+  separate(`Gene symbol`, c("Gene.ID", "Gene.ID2"), sep = "///") %>%
+  dplyr::select(-Gene.ID2)
+
+endotox.3 <- subset(endotox.3, !grepl("LOC", endotox.3$Gene.ID))
+endotox.3 <- subset(endotox.3, !is.na(endotox.3$Gene.ID))
+
+desired <- Columns(dataTable(endotox))
+
+desired <- desired %>%
+  filter(cell.type == "circulating")
+desired <- desired$sample
+
+endotox.3 <- endotox.3 %>%
+  dplyr::select(Gene.ID, desired)
+```
+
+```{r, eval = FALSE}
+write.table(endotox.3, "../../ciberin/test-neuts_endotoxin.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+```
+
+# Neturophils from Blood:Obese and lean subjects
+```{r}
+blood.obes.2 <- blood.obes.1 %>%
+  select(`Gene symbol`, contains("GSM")) %>%
+  filter(`Gene symbol` != "")
+
+```
+
+```{r}
+blood.obes.3 <- blood.obes.2 %>%
+  separate(`Gene symbol`, c("Gene.ID", "Gene.ID2"), sep = "///") %>%
+  select(-Gene.ID2)
+
+blood.obes.3 <- subset(blood.obes.3, !grepl("LOC", blood.obes.3$Gene.ID))
+blood.obes.3 <- subset(blood.obes.3, !is.na(blood.obes.3$Gene.ID))
+
+blood.obes.3 <- subset(blood.obes.3, !is.na(blood.obes.3$GSM494319))
+```
+
+```{r}
+write.table(blood.obes.3, "../../ciberin/test-sigs_blood_obesity.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+hold <- blood.obes@dataTable@columns
+write.csv(hold, "../../../exploratory/data/validate-blood_meta.csv")
+```
+
+#Neutrophils from AT:Obese and lean subjects
+
+```{r}
+
+ID <- featureNames(at.obes)
+ID2 <- sub("_at", "", ID)
+GS <- as.data.frame(getSYMBOL(ID2, 'org.Hs.eg')) %>%
+  rownames_to_column(var = "Gene.ID")
+colnames(GS)[2] <- "Gene.Symbol"
+GS <- GS %>%
+  mutate(Gene.ID = paste(Gene.ID, "_at", sep = ""))
+
+at.obes.1 <- exprs(at.obes) %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene.ID") %>%
+  right_join(GS, .) %>%
+  dplyr::select(-Gene.ID) %>%
+  filter(!is.na(Gene.Symbol))
+
+```
+
+```{r}
+write.table(at.obes.1, "../../ciberin/test-sigs_at_obesity.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+
+hold <- phenoData(at.obes)@data
+write.csv(hold, "../../../exploratory/data/validate-at_meta.csv")
+```
