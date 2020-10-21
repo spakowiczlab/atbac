@@ -134,8 +134,8 @@ getsampord %>%
 ```{r}
 getPalette <- colorRampPalette(brewer.pal(11, "Spectral"))
 phyls <- unique(as.character(taxcounts.phyl$Phylum))
-use.palette <- getPalette(12)
-use.palette[11] <- "grey"
+use.palette <- getPalette(14)
+use.palette[13] <- "grey"
 
 taxcounts.phyl %>%
   mutate(seqtype = ifelse(grepl("-C", sample), "RNA", "DNA")) %>%

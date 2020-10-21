@@ -122,30 +122,8 @@ saveRDS(taxa, "../data/tax_update.RDS")
 # taxa <- readRDS("../data/tax_update.RDS")
 ```
 
-# Test sequence lengths, filter
-```{r}
-l <- nchar(colnames(seqtab.nochim))
-l <- as.data.frame(cbind(l, hold = NA))
-hist(l$l, 500)
 
-ggplot(l, aes(x = l)) +
-  geom_histogram(bins = 500) +
-  ggsave("../figures/dada2-nchar-histogram.png")
-```
 
-```{r}
-longenough <- l$l > 325 & l$l < 360
-sum(longenough) / length(longenough)
-
-seqtabNoCf <- seqtab.nochim[, longenough]
-taxf <- taxa[longenough, ]
-```
-
-# Save filtered tables
-```{r}
-saveRDS(seqtabNoCf, file = "../data/seqtabNoCf_update.RDS")
-saveRDS(taxf, file = "../data/taxf_update.RDS")
-```
 
 # Check assigment success at different read lengths
 
@@ -153,6 +131,7 @@ saveRDS(taxf, file = "../data/taxf_update.RDS")
 
 ```{r}
 seqtabNoC <- readRDS("../data/seqtabNoC_update.RDS")
+tax <- readRDS(("../data/tax_update.RDS"))
 
 seqsums <- colSums(seqtabNoC) %>%
   as.data.frame() %>%
@@ -161,16 +140,15 @@ seqsums <- colSums(seqtabNoC) %>%
   rownames_to_column(var = "Sequence") %>%
   rename("total.count" = ".") %>%
   mutate(seqlen = nchar(Sequence))
-tax <- readRDS(("../data/tax_update.RDS")) %>%
-  as.data.frame() %>%
-  rownames_to_column(var = "Sequence")
+
 
 taxcounts <- tax %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sequence")
   left_join(seqsums) %>%
   mutate(king.isclass = !is.na(Kingdom))
 ```
 ## Get desired counts
-I want the # of unclassified reads vs. classified reads at each level.
 
 ```{r}
 summary(taxcounts$seqlen)
@@ -210,5 +188,31 @@ desc.ret.df %>%
   theme_bw() +
   ggsave("../figures/percent-reads-and-sequences-classified.png")
 ```
+
+# Test sequence lengths, filter
+```{r}
+l <- nchar(colnames(seqtabNoC))
+# l <- as.data.frame(cbind(l, hold = NA))
+# hist(l$l, 500)
+# 
+# ggplot(l, aes(x = l)) +
+#   geom_histogram(bins = 500) +
+#   ggsave("../figures/dada2-nchar-histogram.png")
+```
+
+```{r}
+longenough <- l > 340 & l < 440
+sum(longenough) / length(longenough)
+
+seqtabNoCf <- seqtabNoC[, longenough]
+taxf <- tax[longenough, ]
+```
+
+# Save filtered tables
+```{r}
+saveRDS(seqtabNoCf, file = "../data/seqtabNoCf_update.RDS")
+saveRDS(taxf, file = "../data/taxf_update.RDS")
+```
+
 
 
