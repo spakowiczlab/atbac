@@ -10,6 +10,7 @@ library(dplyr)
 library(tibble)
 library(decontam)
 library(tidyr)
+library(ape)
 ```
 
 # Load data
@@ -104,4 +105,77 @@ taxcounts.neg %>%
 
 ```{r}
 mean(present.in.neg$negpres)
+```
+
+# Use ape to check similarity of negative control sequences with other sequences
+
+We will write out the inputs here and record the commands put into the terminal, as this doesn't want to work with the R environment.
+
+## Write out starting fastas
+
+```{r}
+library(ShortRead)
+
+# The fasta's should contain all sequences with taxonomy assignments that are the same as the contaminants that are not fully labelled.
+
+taxa.to.write <- taxcounts.negtax %>%
+  filter(is.na(Genus)) %>%
+  mutate(fulltax = paste0(Kingdom, Phylum, Class, Order, Family, Genus)) 
+taxa.to.write <- unique(taxa.to.write$fulltax)
+
+tax.form.quesseq <- tax.form %>%
+  mutate(fulltax = paste0(Kingdom, Phylum, Class, Order, Family, Genus)) 
+
+allseq <- lapply(taxa.to.write, function(x) tax.form.quesseq %>% filter(fulltax == x) %>% select(Sequence) %>%
+                   add_count())
+
+allseq.stringset <- lapply(allseq, function(x) DNAStringSet(x$Sequence))
+names(allseq.stringset) <- taxa.to.write
+
+lapply(taxa.to.write, function(x) writeFasta(file = paste0("/fs/scratch/PAS1479/atbac/muscle-fastqs/input_",
+                                                              x, ".fasta"), 
+                                             object = allseq.stringset[[x]]))
+```
+
+## Record muscle commands
+
+```{r}
+# module load muscle/3.8.31
+
+# muscle -in input_BacteriaFirmicutesBacilliBacillalesStaphylococcaceaeNA.fasta -out output_BacteriaFirmicutesBacilliBacillalesStaphylococcaceaeNA.fasta
+
+# muscle -in input_EukaryotaNANANANANA.fasta -out output_EukaryotaNANANANANA.fasta
+```
+
+## Read in results, check similarity
+
+```{r}
+muscleout <- lapply(taxa.to.write, function(x) read.dna(format = "fasta",
+                                                      paste0("/fs/scratch/PAS1479/atbac/muscle-fastqs/output_",
+                                                             x, ".fasta")))
+
+distmats <- lapply(muscleout, function(x) dist.dna(x, as.matrix = TRUE))
+
+```
+
+```{r}
+eukmat <- distmats[[1]]
+colnames(eukmat) <- allseq[[1]]$Sequence
+rownames(eukmat) <- allseq[[1]]$Sequence
+
+eukstartseq <- eukmat[,taxcounts.negtax$Sequence[1]]
+badeuks <- names(subset(eukstartseq, eukstartseq > 0 & eukstartseq < 0.03))
+
+distmats[[2]]
+```
+
+## Remove contaminants, save resulting taxcounts object
+
+```{r}
+taxcounts.pass <- taxcounts %>%
+  filter(!Sequence %in% badeuks) %>%
+  filter(!Sequence %in% allseq[[2]]$Sequence) %>%
+  filter(!sample == "ABNEG-C")
+
+saveRDS(taxcounts.pass, "../data/taxcounts_interface-DNA_no-neg-contams.RDS")
 ```
