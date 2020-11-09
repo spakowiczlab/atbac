@@ -11,6 +11,7 @@ library(tibble)
 library(decontam)
 library(tidyr)
 library(ape)
+library(readxl)
 ```
 
 # Load data
@@ -19,27 +20,27 @@ library(ape)
 seqtab <- readRDS("../data/seqtabNoCf_update.RDS")
 tax <- readRDS("../data/taxf_update.RDS")
 
-meta <- read.csv("../data/ATBACSAMPLESrna-dna.csv", stringsAsFactors = F)
+meta <- read_excel("../data/Sample list from Nyelia_10092020.xlsx", skip = 6)
 ```
 
 # Manipulate to DNA interface layer samples
 
 ```{r}
 meta.f <- meta %>%
-  filter((grepl("-I", Sample.ID) & Sample.Type == "DNA") | Sample.ID == "AB014-NEG") %>%
-  group_by(Sample.ID) %>%
-  summarize(Nucleic.con = max(Nucleic.Acid.Conc.)) %>%
-  mutate(Sample.ID = ifelse(grepl("NEG", Sample.ID), "ABNEG", Sample.ID),
-         Nucleic.con = Nucleic.con + 0.7) %>% # Minimum concentration is -.6, decontam only accepts positive []
+  mutate(Sample.ID = paste0(sequence.id, "-I")) %>%
   arrange(Sample.ID)
 
 seqtab.f <- seqtab %>%
   as.data.frame() %>%
   rownames_to_column(var = "sample") %>%
-  filter(grepl("-CI", sample)|sample == "ABNEG-C")
+  filter(grepl("-I", sample)|sample == "ABNEG")
 
-meta.fr <- meta.f[-13,]
-seqtab.fr <- seqtab.f[-15,]
+goodsamps <- intersect(seqtab.f$sample, meta.f$Sample.ID)
+
+meta.fr <- meta.f %>%
+  filter(Sample.ID %in% goodsamps)
+seqtab.fr <- seqtab.f %>%
+  filter(sample %in% goodsamps)
 
 negvec <- c(rep(FALSE, 16), TRUE)
 ```
@@ -48,9 +49,11 @@ negvec <- c(rep(FALSE, 16), TRUE)
 
 We don't find any contaminants using this process.
 ```{r}
-checkvals <- isContaminant(as.matrix(seqtab.fr[,-1]), conc = meta.fr$Nucleic.con, neg = negvec)
-
+checkvals <- isContaminant(as.matrix(seqtab.fr[,-1]), conc = meta.fr$`Concentration (ug/ul)`)
 any(checkvals$contaminant == TRUE)
+
+checknegs <- isContaminant(as.matrix(seqtab.f[,-1]), neg = negvec)
+any(checknegs$contaminant == TRUE)
 ```
 
 # Which organisms appear in the negative control?
@@ -65,7 +68,7 @@ taxcounts <- seqtab.f %>%
   left_join(tax.form) 
 
 present.in.neg <- taxcounts %>%
-  filter(sample == "ABNEG-C") %>%
+  filter(sample == "ABNEG") %>%
   mutate(negpres = ifelse(counts > 0, TRUE, FALSE)) %>%
   select(Sequence, negpres)
 ```
@@ -92,13 +95,15 @@ taxcounts.negtax
 ```
 
 ```{r}
-# How representative of proteobacteria is this group?
+# How representative of proteobacteria is this group? 
 
-taxcounts.neg %>%
-  filter(Phylum == "Proteobacteria") %>%
-  mutate(Genus = ifelse(Genus == "Stakelama", "Stakelama", "Other")) %>%
-  group_by(Genus) %>%
-  summarise(counts = sum(counts))
+# Nvm, this was relevant in DNA not RNA
+
+# taxcounts.neg %>%
+#   filter(Phylum == "Proteobacteria") %>%
+#   mutate(Genus = ifelse(Genus == "Stakelama", "Stakelama", "Other")) %>%
+#   group_by(Genus) %>%
+#   summarise(counts = sum(counts))
 ```
 
 ## What's the percentage of sequences in the control?
@@ -164,18 +169,18 @@ colnames(eukmat) <- allseq[[1]]$Sequence
 rownames(eukmat) <- allseq[[1]]$Sequence
 
 eukstartseq <- eukmat[,taxcounts.negtax$Sequence[1]]
-badeuks <- names(subset(eukstartseq, eukstartseq > 0 & eukstartseq < 0.03))
+badeuks <- names(subset(eukstartseq, eukstartseq < 0.03))
 
-distmats[[2]]
+# distmats[[2]]
 ```
 
 ## Remove contaminants, save resulting taxcounts object
 
 ```{r}
 taxcounts.pass <- taxcounts %>%
-  filter(!Sequence %in% badeuks) %>%
-  filter(!Sequence %in% allseq[[2]]$Sequence) %>%
-  filter(!sample == "ABNEG-C")
+  filter(!(Sequence %in% badeuks)) 
+  # filter(!(Sequence %in% allseq[[2]]$Sequence)) %>%
+  # filter(!(sample == "ABNEG-C"))
 
 saveRDS(taxcounts.pass, "../data/taxcounts_interface-DNA_no-neg-contams.RDS")
 ```

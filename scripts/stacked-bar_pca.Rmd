@@ -116,6 +116,16 @@ famsum %>%
 # Stacked bar, DNA with ordering
 
 ```{r}
+taxcounts.nocontam <- readRDS("../data/taxcounts_interface-DNA_no-neg-contams.RDS")
+
+taxcounts.nocontam.phyl <- taxcounts.nocontam %>%
+  mutate(Phylum = as.character(Phylum),
+         Phylum = ifelse(is.na(Phylum), "Unclassified", Phylum)) %>%
+  group_by(sample, Phylum) %>%
+  summarise(count = sum(counts)) 
+```
+
+```{r}
 getsampord <- bmi.stat %>%
   arrange(BMI) %>%
   mutate(sample = paste0(sequence.id, "-I"))
@@ -133,13 +143,13 @@ getsampord %>%
 
 ```{r}
 getPalette <- colorRampPalette(brewer.pal(11, "Spectral"))
-phyls <- unique(as.character(taxcounts.phyl$Phylum))
+phyls <- unique(as.character(taxcounts.nocontam.phyl$Phylum))
 use.palette <- getPalette(14)
 use.palette[13] <- "grey"
 
-taxcounts.phyl %>%
-  mutate(seqtype = ifelse(grepl("-C", sample), "RNA", "DNA")) %>%
-  filter(seqtype == "DNA" & !grepl("ABNEG", sample) & grepl("-I", sample)) %>%
+taxcounts.nocontam.phyl %>%
+  # mutate(seqtype = ifelse(grepl("-C", sample), "RNA", "DNA")) %>%
+  # filter(seqtype == "DNA" & !grepl("ABNEG", sample) & grepl("-I", sample)) %>%
   left_join(getsampord) %>%
   ggplot(aes(x = fct_relevel(sample, rev(getsampord$sample)), y = count, fill = Phylum)) +
   geom_col(position = "fill") +
@@ -147,5 +157,5 @@ taxcounts.phyl %>%
   labs(x = "", y = "") +
   theme_bw() +
   theme(axis.text.x = element_blank()) +
-  ggsave("../figures/stacked-bar_phyla_DNA-ordered.png", width = 10)
+  ggsave("../figures/stacked-bar_phyla_DNA-ordered_nocontam.png", width = 10)
 ```

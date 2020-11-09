@@ -37,7 +37,7 @@ obes.met <- bmi.stat %>%
   filter(!grepl("NEG", label))
 ```
 
-## RNA 
+## DNA 
 
 ```{r}
 getnegs <- seqtab %>%
@@ -48,7 +48,7 @@ getnegs <- names(subset(getnegs, getnegs > 0))
 ```
 
 ```{r}
-seqtab.ncon.r <- seqtab %>%
+seqtab.ncon.d <- seqtab %>%
   filter(!grepl("NEG", sample)) %>%
   filter(grepl("-C", sample)) %>%
   select(-getnegs)
@@ -58,7 +58,7 @@ seqtab.ncon.r <- seqtab %>%
 ```
 
 ```{r}
-seqtab.labs.r <- seqtab.ncon.r %>%
+seqtab.labs.d <- seqtab.ncon.d %>%
   gather(-sample, key = 'Sequence', value = "counts") %>%
   left_join(tax) %>%
   separate(sample, into = c("patient", "samptag"), sep = "-") %>%
@@ -68,7 +68,7 @@ seqtab.labs.r <- seqtab.ncon.r %>%
 
 ```
 
-## DNA 
+## RNA 
 
 ```{r}
 getnegs <- seqtab %>%
@@ -79,7 +79,7 @@ getnegs <- names(subset(getnegs, getnegs > 0))
 ```
 
 ```{r}
-seqtab.ncon.d <- seqtab %>%
+seqtab.ncon.r <- seqtab %>%
   filter(!grepl("NEG", sample)) %>%
   filter(!grepl("-C", sample)) %>%
   select(-getnegs)
@@ -89,7 +89,7 @@ seqtab.ncon.d <- seqtab %>%
 ```
 
 ```{r}
-seqtab.labs.d <- seqtab.ncon.d %>%
+seqtab.labs.r <- seqtab.ncon.r %>%
   gather(-sample, key = 'Sequence', value = "counts") %>%
   left_join(tax) %>%
   separate(sample, into = c("patient", "samptag"), sep = "-") %>%
