@@ -41,7 +41,7 @@ obes.met <- bmi.stat %>%
 
 ```{r}
 getnegs <- seqtab %>%
-  filter(grepl("NEG-C", sample))
+  filter(sample == "ABNEG")
 
 getnegs <- colSums(getnegs[,-1])
 getnegs <- names(subset(getnegs, getnegs > 0))
@@ -50,7 +50,7 @@ getnegs <- names(subset(getnegs, getnegs > 0))
 ```{r}
 seqtab.ncon.d <- seqtab %>%
   filter(!grepl("NEG", sample)) %>%
-  filter(grepl("-C", sample)) %>%
+  filter(!grepl("-C", sample)) %>%
   select(-getnegs)
 
 # tax.ncon.r <- tax %>%
@@ -72,7 +72,7 @@ seqtab.labs.d <- seqtab.ncon.d %>%
 
 ```{r}
 getnegs <- seqtab %>%
-  filter(grepl("NEG$", sample))
+  filter(sample == "ABNEG-C")
 
 getnegs <- colSums(getnegs[,-1])
 getnegs <- names(subset(getnegs, getnegs > 0))
@@ -81,7 +81,7 @@ getnegs <- names(subset(getnegs, getnegs > 0))
 ```{r}
 seqtab.ncon.r <- seqtab %>%
   filter(!grepl("NEG", sample)) %>%
-  filter(!grepl("-C", sample)) %>%
+  filter(grepl("-C", sample)) %>%
   select(-getnegs)
 
 # tax.ncon.r <- tax %>%
