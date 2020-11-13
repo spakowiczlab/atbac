@@ -1,0 +1,156 @@
+---
+title: "sourcetracker"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(HMP16SData)
+
+# library(devtools)
+# devtools::install_github("beadyallen/MGnifyR")
+library(MGnifyR)
+
+library(biomformat)
+```
+
+#Get data
+
+## HMP Data
+
+```{r}
+
+sumexp <- V35(metadata = FALSE)
+
+hmpcounts <- sumexp@assays$data$`16SrRNA` %>%
+  as.data.frame()
+hmpcounts$fulltax <- rowData(sumexp)@listData$CONSENSUS_LINEAGE
+hmpsamps <- colData(sumexp)
+addsite <- as.data.frame(cbind(sample = hmpsamps@rownames, bodsite = hmpsamps@listData$HMP_BODY_SITE))
+
+hmp.long <- hmpcounts %>%
+  gather(-fulltax, key = "sample", value = "count") %>%
+  left_join(addsite)
+
+```
+
+## MGnify Data
+```{r}
+mg <- mgnify_client( usecache=T, cache_dir='/fs/scratch/PAS1479/sourcetracker/data/MGnify_cache')
+
+builtenv <- mgnify_query(mg, "samples", experiment_type="amplicon",
+                         biome_name="Built environment", instrument_platform = "Illumina", usecache = T)
+
+
+analyses_accessions <- mgnify_analyses_from_samples(mg, accession = builtenv$accession)
+analyses_metadata <- mgnify_get_analyses_metadata(mg, analyses_accessions)
+
+builtenv.phylo <- mgnify_get_analyses_phyloseq(mg, analyses_metadata$analysis_accession)
+```
+
+## Atbac Data
+```{r}
+taxcounts <- readRDS("../data/taxcounts_interface-DNA_no-neg-contams.RDS")
+```
+
+# Format inputs
+
+## Unify taxonomy
+
+```{r Get to same labelling syntax}
+# HMP - keep in current tax format this is what we will unify to.
+
+# MGnify - do a paste into full taxonomy starting at phyla. Make sure to hold NA spaces
+
+builtenv.tax <- as.data.frame(builtenv.phylo@tax_table) %>%
+  mutate(Phylum = ifelse(is.na(Phylum), "p__", paste0("p__", Phylum)),
+         Class = ifelse(is.na(Class), "c__", paste0("c__", Class)),
+         Order = ifelse(is.na(Order), "o__", paste0("o__", Order)),
+         Family  = ifelse(is.na(Family), "f__", paste0("f__", Family)),
+         Genus = ifelse(is.na(Genus), "g__", paste0("g__", Genus)),
+         fulltax = paste("Root", Phylum, Class, Order, Family, Genus, sep = ";") 
+         )
+
+# atbac - similar to MGnify
+atbac.taxres <- taxcounts %>%
+  mutate(Phylum = ifelse(is.na(Phylum), "p__", paste0("p__", Phylum)),
+         Class = ifelse(is.na(Class), "c__", paste0("c__", Class)),
+         Order = ifelse(is.na(Order), "o__", paste0("o__", Order)),
+         Family  = ifelse(is.na(Family), "f__", paste0("f__", Family)),
+         Genus = ifelse(is.na(Genus), "g__", paste0("g__", Genus)),
+         fulltax = paste("Root", Phylum, Class, Order, Family, Genus, sep = ";") 
+         ) %>%
+  rename("counts" = "count")
+
+```
+
+```{r remove unclassified and combine same tax rows}
+# Adjust any object formats for list as necessary
+builtenv.long <- builtenv.phylo@otu_table %>%
+  as.data.frame() 
+builtenv.long$fulltax <- builtenv.tax$fulltax
+builtenv.long <- builtenv.long %>%
+  gather(-fulltax, key = "sample", value = "count")
+
+
+
+```
+
+## Create counts matrix
+
+```{r}
+tax_combine_to_wide <- function(x){
+  x %>%
+    filter(fulltax != "Root;p__;c__;o__;f__;g__") %>%
+    group_by(sample, fulltax) %>%
+    summarise(count = sum(count)) %>%
+    spread(key = "fulltax", value = "count")
+}
+
+allcounts.list <- lapply(list(hmp.long, builtenv.long, atbac.taxres), function(y) tax_combine_to_wide(y))
+
+allcounts.form <- bind_rows(allcounts.list) %>%
+  select(-"Root") %>%
+  arrange(sample) %>%
+  column_to_rownames(var = "sample") %>%
+  t() %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Taxonomy")
+allcounts.form[is.na(allcounts.form)] <- 0
+
+# allcounts.biom <- make_biom(allcounts.form)
+```
+
+## Create mapping matrix
+
+```{r}
+mgmap <- as.data.frame(cbind(sample = colnames(builtenv.phylo@otu_table),
+                               SourceSink = "source",
+                               Env = "built environment")
+                         )
+
+hmpmap <- addsite %>%
+  mutate(SourceSink = "source") %>%
+  rename("bodsite" = "Env")
+
+atbacmap <- as.data.frame(cbind(sample = unique(taxcounts$sample),
+                                SourceSink = "sink",
+                                Env = paste0("VAT", 1:18)
+                                )
+                          )
+
+
+allmap <- bind_rows(mgmap,hmpmap,atbacmap) %>%
+  arrange(sample)
+```
+
+# Document sourcetracker commands
+
+```{r save input files}
+write.table(allcounts.form, "/fs/scratch/PAS1479/atbac/sourcetracker/otutable.txt", sep = "\t", quote = F,
+            row.names = F)
+write.table(allmap, "/fs/scratch/PAS1479/atbac/sourcetracker/map.txt", sep = "\t", quote = F)
+```
+

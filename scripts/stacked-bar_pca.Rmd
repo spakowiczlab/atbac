@@ -127,8 +127,14 @@ taxcounts.nocontam.phyl <- taxcounts.nocontam %>%
 
 ```{r}
 getsampord <- bmi.stat %>%
-  arrange(BMI) %>%
-  mutate(sample = paste0(sequence.id, "-I"))
+  mutate(sample = paste0(sequence.id, "-I")) %>%
+  left_join(taxcounts.nocontam.phyl) %>%
+  group_by(sequence.id) %>%
+  mutate(totco = sum(count)) %>%
+  ungroup() %>%
+  filter(Phylum == "Firmicutes") %>%
+  mutate(phylra = count/totco) %>%
+  arrange(BMI, phylra) 
 
 getsampord %>%
   mutate(count = 1) %>%
@@ -148,12 +154,15 @@ use.palette <- getPalette(14)
 use.palette[13] <- "grey"
 
 taxcounts.nocontam.phyl %>%
+  filter(sample != "ABNEG") %>%
   # mutate(seqtype = ifelse(grepl("-C", sample), "RNA", "DNA")) %>%
   # filter(seqtype == "DNA" & !grepl("ABNEG", sample) & grepl("-I", sample)) %>%
-  left_join(getsampord) %>%
-  ggplot(aes(x = fct_relevel(sample, rev(getsampord$sample)), y = count, fill = Phylum)) +
+  # left_join(getsampord) %>%
+  ggplot(aes(x = fct_relevel(sample, rev(getsampord$sample)), 
+             y = count, 
+             fill = fct_relevel(Phylum, "Firmicutes"))) +
   geom_col(position = "fill") +
-  scale_fill_manual(breaks = phyls, values = use.palette) + 
+  scale_fill_manual(breaks = phyls, values = use.palette, name = "Phylum") + 
   labs(x = "", y = "") +
   theme_bw() +
   theme(axis.text.x = element_blank()) +
