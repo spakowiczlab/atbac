@@ -52,7 +52,8 @@ builtenv.phylo <- mgnify_get_analyses_phyloseq(mg, analyses_metadata$analysis_ac
 
 ## Atbac Data
 ```{r}
-taxcounts <- readRDS("../data/taxcounts_interface-DNA_no-neg-contams.RDS")
+taxcounts <- readRDS("../data/taxcounts_interface-DNA_no-neg-contams.RDS")%>%
+  filter(sample != "ABNEG")
 ```
 
 # Format inputs
@@ -137,9 +138,9 @@ hmpmap <- addsite %>%
 
 atbacmap <- as.data.frame(cbind(sample = unique(taxcounts$sample),
                                 SourceSink = "sink",
-                                Env = paste0("VAT", 1:18)
+                                Env = paste0("VAT", 1:17)
                                 )
-                          )
+                          ) 
 
 
 allmap <- bind_rows(mgmap,hmpmap,atbacmap) %>%
@@ -154,3 +155,35 @@ write.table(allcounts.form, "/fs/scratch/PAS1479/atbac/sourcetracker/otutable.tx
 write.table(allmap, "/fs/scratch/PAS1479/atbac/sourcetracker/map.txt", sep = "\t", quote = F)
 ```
 
+```{r}
+# sourcetracker2 gibbs -i otutable.txt -m alt-map.txt -o sourceout --source_sink_column source-or-sink --source_category_column sample-type --sink_rarefaction_depth 0
+```
+
+# Visualization
+
+```{r}
+sourceres <- read.table("/fs/scratch/PAS1479/atbac/sourcetracker/sourceout/mixing_proportions.txt",
+                        sep = "\t", header = T)
+
+bmi.stat <- read.csv("../data/samples_obesity-status.csv", stringsAsFactors = F) %>%
+  select(-sample.name) %>%
+  mutate(SampleID = paste0(sequence.id, "-I")) %>%
+  filter(!is.na(BMI)) %>%
+  arrange(BMI)
+```
+
+
+```{r}
+sourceres %>%
+  gather(!SampleID, key = "source", value = "prop") %>%
+  mutate(source = ifelse(source == "Unknown", NA, source)) %>%
+  ggplot(aes(x = fct_relevel(SampleID, rev(bmi.stat$SampleID)), 
+             y = prop, 
+             fill = source)) +
+  geom_col(position = "fill") +
+  scale_fill_brewer(palette = "Dark2", na.value = "grey50") +
+  labs(x = "", y = "") +
+  theme_bw() +
+  theme(axis.text.x = element_blank()) +
+  ggsave("../figures/stacked-bar_sourcetracker_DNA-ordered_nocontam.png", width = 10)
+```
