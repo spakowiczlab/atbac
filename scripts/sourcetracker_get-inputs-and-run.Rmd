@@ -79,7 +79,15 @@ atbac.taxres <- taxcounts %>%
   mutate(Phylum = ifelse(is.na(Phylum), "p__", paste0("p__", Phylum)),
          Class = ifelse(is.na(Class), "c__", paste0("c__", Class)),
          Order = ifelse(is.na(Order), "o__", paste0("o__", Order)),
+         Family = ifelse(grepl("Bacteroidales", Family), NA, Family),
          Family  = ifelse(is.na(Family), "f__", paste0("f__", Family)),
+         Genus = ifelse(grepl("Ruminococcus", Genus), "Ruminococcus", Genus),
+         Genus = ifelse(grepl("Coprococcus", Genus), "Coprococcus", Genus),
+         Genus = ifelse(grepl("Ruminococcaceae", Genus), NA, Genus),
+         Genus = ifelse(grepl("Lachnospiraceae", Genus), NA, Genus),
+         Genus = ifelse(grepl("Ruminoclostridium", Genus), "Ruminoclostridium", Genus),
+         Genus = ifelse(grepl("Christenellaceae", Genus), NA, Genus),
+         Genus = ifelse(grepl("Prevotella", Genus), "Prevotella", Genus),
          Genus = ifelse(is.na(Genus), "g__", paste0("g__", Genus)),
          fulltax = paste("Root", Phylum, Class, Order, Family, Genus, sep = ";") 
          ) %>%
@@ -163,20 +171,22 @@ write.table(allmap, "/fs/scratch/PAS1479/atbac/sourcetracker/map.txt", sep = "\t
 
 ```{r}
 sourceres <- read.table("/fs/scratch/PAS1479/atbac/sourcetracker/sourceout/mixing_proportions.txt",
-                        sep = "\t", header = T)
+                        sep = "\t", header = T) 
 
 bmi.stat <- read.csv("../data/samples_obesity-status.csv", stringsAsFactors = F) %>%
   select(-sample.name) %>%
   mutate(SampleID = paste0(sequence.id, "-I")) %>%
-  filter(!is.na(BMI)) %>%
-  arrange(BMI)
+  left_join(sourceres) %>%
+  arrange(BMI, Gastrointestinal.Tract)
+  
 ```
 
 
 ```{r}
-sourceres %>%
+sourceres  %>%
   gather(!SampleID, key = "source", value = "prop") %>%
-  mutate(source = ifelse(source == "Unknown", NA, source)) %>%
+  mutate(source = ifelse(source == "Unknown", "Other", source)) %>%
+  # filter(source != "Other") %>%
   ggplot(aes(x = fct_relevel(SampleID, rev(bmi.stat$SampleID)), 
              y = prop, 
              fill = source)) +
@@ -186,4 +196,5 @@ sourceres %>%
   theme_bw() +
   theme(axis.text.x = element_blank()) +
   ggsave("../figures/stacked-bar_sourcetracker_DNA-ordered_nocontam.png", width = 10)
+  # ggsave("../figures/stacked_bar_sourcetracker_no-other.png")
 ```
