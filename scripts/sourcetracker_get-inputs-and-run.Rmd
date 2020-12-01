@@ -37,17 +37,62 @@ hmp.long <- hmpcounts %>%
 ```
 
 ## MGnify Data
-```{r}
+```{r mgnify function definitions}
 mg <- mgnify_client( usecache=T, cache_dir='/fs/scratch/PAS1479/sourcetracker/data/MGnify_cache')
+pull_magnify <- function(x){
+  biome.samps <- mgnify_query(mg, "samples", experiment_type="amplicon",
+                               biome_name=x, instrument_platform = "Illumina", usecache = T)
+  
+  
+  analyses_accessions <- mgnify_analyses_from_samples(mg, accession = biome.samps$accession)
+  analyses_metadata <- mgnify_get_analyses_metadata(mg, analyses_accessions)
+  
+  biome.phylo <- mgnify_get_analyses_phyloseq(mg, analyses_metadata$analysis_accession)
+  return(biome.phylo)
+}
 
-builtenv <- mgnify_query(mg, "samples", experiment_type="amplicon",
-                         biome_name="Built environment", instrument_platform = "Illumina", usecache = T)
+phylo_to_combine_counts <- function(x){
+  biome.tax <- as.data.frame(x@tax_table) %>%
+  mutate(Phylum = ifelse(is.na(Phylum), "p__", paste0("p__", Phylum)),
+         Class = ifelse(is.na(Class), "c__", paste0("c__", Class)),
+         Order = ifelse(is.na(Order), "o__", paste0("o__", Order)),
+         Family  = ifelse(is.na(Family), "f__", paste0("f__", Family)),
+         Genus = ifelse(is.na(Genus), "g__", paste0("g__", Genus)),
+         fulltax = paste("Root", Phylum, Class, Order, Family, Genus, sep = ";") 
+  )
+  
+  biome.counts <- x@otu_table %>%
+    as.data.frame() 
+  biome.counts$fulltax <- biome.tax$fulltax
+  biome.long <- biome.counts %>%
+    gather(-fulltax, key = "sample", value = "count")
+  
+  biome.form <- biome.long %>%
+    filter(fulltax != "Root;p__;c__;o__;f__;g__") %>%
+    group_by(sample, fulltax) %>%
+    summarise(count = sum(count)) %>%
+    spread(key = "fulltax", value = "count")
+  
+  return(biome.form)
+  
+}
 
+get_mapping_info <- function(counttab, biomename){
+  mgmap <- counttab %>%
+    select(sample) %>%
+    mutate(SourceSink = "source",
+           Env = biomename)
+}
+```
 
-analyses_accessions <- mgnify_analyses_from_samples(mg, accession = builtenv$accession)
-analyses_metadata <- mgnify_get_analyses_metadata(mg, analyses_accessions)
+```{r actually pull mgnify data}
+biomes.to.pull <- c("Built environment", "Loam")
 
-builtenv.phylo <- mgnify_get_analyses_phyloseq(mg, analyses_metadata$analysis_accession)
+phylo.list.gen <- lapply(biomes.to.pull, function(y) try(pull_magnify(y)))
+counts.mg.list <- lapply(phylo.list.gen, function(y) phylo_to_combine_counts(y))
+names(counts.mg.list) <- biomes.to.pull
+map.mg.list <- lapply(biomes.to.pull, function(y) get_mapping_info(counts.mg.list[[y]], y))
+
 ```
 
 ## Atbac Data
@@ -63,16 +108,7 @@ taxcounts <- readRDS("../data/taxcounts_interface-DNA_no-neg-contams.RDS")%>%
 ```{r Get to same labelling syntax}
 # HMP - keep in current tax format this is what we will unify to.
 
-# MGnify - do a paste into full taxonomy starting at phyla. Make sure to hold NA spaces
-
-builtenv.tax <- as.data.frame(builtenv.phylo@tax_table) %>%
-  mutate(Phylum = ifelse(is.na(Phylum), "p__", paste0("p__", Phylum)),
-         Class = ifelse(is.na(Class), "c__", paste0("c__", Class)),
-         Order = ifelse(is.na(Order), "o__", paste0("o__", Order)),
-         Family  = ifelse(is.na(Family), "f__", paste0("f__", Family)),
-         Genus = ifelse(is.na(Genus), "g__", paste0("g__", Genus)),
-         fulltax = paste("Root", Phylum, Class, Order, Family, Genus, sep = ";") 
-         )
+# MGnify - done with functions around pull
 
 # atbac - similar to MGnify
 atbac.taxres <- taxcounts %>%
@@ -93,34 +129,26 @@ atbac.taxres <- taxcounts %>%
          ) %>%
   rename("counts" = "count")
 
-```
-
-```{r remove unclassified and combine same tax rows}
-# Adjust any object formats for list as necessary
-builtenv.long <- builtenv.phylo@otu_table %>%
-  as.data.frame() 
-builtenv.long$fulltax <- builtenv.tax$fulltax
-builtenv.long <- builtenv.long %>%
-  gather(-fulltax, key = "sample", value = "count")
-
-
 
 ```
 
 ## Create counts matrix
 
 ```{r}
-tax_combine_to_wide <- function(x){
-  x %>%
+atbac.form <- atbac.taxres %>%
     filter(fulltax != "Root;p__;c__;o__;f__;g__") %>%
     group_by(sample, fulltax) %>%
     summarise(count = sum(count)) %>%
     spread(key = "fulltax", value = "count")
-}
 
-allcounts.list <- lapply(list(hmp.long, builtenv.long, atbac.taxres), function(y) tax_combine_to_wide(y))
+hmp.form <- hmp.long %>%
+    filter(fulltax != "Root;p__;c__;o__;f__;g__") %>%
+    group_by(sample, fulltax) %>%
+    summarise(count = sum(count)) %>%
+    spread(key = "fulltax", value = "count")
+# allcounts.list <- lapply(list(hmp.long, builtenv.long, atbac.taxres), function(y) tax_combine_to_wide(y))
 
-allcounts.form <- bind_rows(allcounts.list) %>%
+allcounts.form <- bind_rows(bind_rows(counts.mg.list), atbac.form, hmp.form) %>%
   select(-"Root") %>%
   arrange(sample) %>%
   column_to_rownames(var = "sample") %>%
@@ -135,10 +163,6 @@ allcounts.form[is.na(allcounts.form)] <- 0
 ## Create mapping matrix
 
 ```{r}
-mgmap <- as.data.frame(cbind(sample = colnames(builtenv.phylo@otu_table),
-                               SourceSink = "source",
-                               Env = "built environment")
-                         )
 
 hmpmap <- addsite %>%
   mutate(SourceSink = "source") %>%
@@ -151,7 +175,7 @@ atbacmap <- as.data.frame(cbind(sample = unique(taxcounts$sample),
                           ) 
 
 
-allmap <- bind_rows(mgmap,hmpmap,atbacmap) %>%
+allmap <- bind_rows(bind_rows(map.mg.list),hmpmap,atbacmap) %>%
   arrange(sample)
 ```
 
@@ -160,11 +184,11 @@ allmap <- bind_rows(mgmap,hmpmap,atbacmap) %>%
 ```{r save input files}
 write.table(allcounts.form, "/fs/scratch/PAS1479/atbac/sourcetracker/otutable.txt", sep = "\t", quote = F,
             row.names = F)
-write.table(allmap, "/fs/scratch/PAS1479/atbac/sourcetracker/map.txt", sep = "\t", quote = F)
+write.table(allmap, "/fs/scratch/PAS1479/atbac/sourcetracker/map.txt", sep = "\t", quote = F, row.names = F)
 ```
 
 ```{r}
-# sourcetracker2 gibbs -i otutable.txt -m alt-map.txt -o sourceout --source_sink_column source-or-sink --source_category_column sample-type --sink_rarefaction_depth 0
+# sourcetracker2 gibbs -i otutable.txt -m map.txt -o sourceout --source_sink_column source-or-sink --source_category_column sample-type --sink_rarefaction_depth 0
 ```
 
 # Visualization
