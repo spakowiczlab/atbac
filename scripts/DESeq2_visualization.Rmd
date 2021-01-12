@@ -30,3 +30,22 @@ d %>%
          
 ```
 
+# Volcano plot
+
+```{r}
+head(d)
+```
+
+```{r}
+d %>%
+  mutate(colgroup = ifelse(pvalue < 0.1, Taxa.Level, NA)) %>%
+  ggplot(aes(x = log2FoldChange, y = -log(pvalue), color = colgroup)) +
+  geom_point() +
+  geom_hline(yintercept = -log(.1), linetype = "dashed") +
+  geom_vline(xintercept = -2, linetype = "dashed") +
+  geom_vline(xintercept = 2, linetype = "dashed") +
+  scale_color_brewer(palette = "Dark2", na.value = "grey50", name = "Taxonomy Level") +
+  theme_bw() +
+  ggsave("../figures/volcano_deseq2-DNA-results.pdf")
+```
+
