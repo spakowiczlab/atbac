@@ -9,10 +9,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
+library(ggrepel)
 ```
 
 ```{r}
-d <- read.csv("../data/DESeq2_all-levs_DNA.csv")
+d <- read.csv("../data/DESeq2_all-levs_DNA.csv", stringsAsFactors = F)
 ```
 
 ```{r}
@@ -41,6 +42,7 @@ d %>%
   mutate(colgroup = ifelse(pvalue < 0.1, Taxa.Level, NA)) %>%
   ggplot(aes(x = log2FoldChange, y = -log(pvalue), color = colgroup)) +
   geom_point() +
+  geom_text_repel(aes(label = ifelse(!is.na(colgroup), Taxa, NA))) +
   geom_hline(yintercept = -log(.1), linetype = "dashed") +
   geom_vline(xintercept = -2, linetype = "dashed") +
   geom_vline(xintercept = 2, linetype = "dashed") +
