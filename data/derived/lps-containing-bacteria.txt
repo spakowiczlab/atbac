@@ -1,0 +1,70 @@
+Aggregatibacter
+Bordetella
+Brucella
+Eikenella
+Haemophilus
+Moraxella
+
+>Neisseria species:  (frequently colonize mucosal surfaces.)
+1] Neisseria gonorrhoeae
+2] Neisseria meningitidis
+>Pasteurella multocida
+>Acinetobacter baumannii
+>Achromobacter xylosoxidans
+>Bordetella pertussis
+Burkholderia
+>Elizabethkingia meningoseptica (Previously Chryseobacterium meningosepticum)
+>Moraxella catarrhalis (formerly known as Branhamella catarrhalis)
+>Pseudomonas aeruginosa
+>Stenotrophomonas maltophilia (Initially classified as Pseudomonas maltophilia)
+>Bacteroides fragilis (most important clinically)
+[Other Bacteroides species  – less common clinically:  (B. acidifaciens, B. gracilis,
+B. oris, B. ovatus,  B. pyogenes , B. stercoris, B. vulgatus)]
+>Bacteroides melaninogenicus (reclassified and split into Prevotella melaninogenica
+and Prevotella intermedia.)
+>Fusobacterium necrophorum
+>Aeromonas species:
+1] Aeromonas hydrophila
+2] Aeromonas veronii
+3] Aeromonas shubertii
+>Bartonella species:
+1] Bartonella bacilliformis
+2] Bartonella henselae (organism responsible for cat scratch disease)
+3] Bartonella Quintana
+4] Other
+>Campylobacter:
+1] Campylobacter fetus
+2] Campylobacter jejuni
+>Capnocytophaga species:
+1] Capnocytophaga canimorsus
+2] Capnocytophaga ochracea
+>Francisella tularensis
+>Helicobacter pylori
+>Legionella species: ( L. pneumophila)
+>Plesiomonas shigelloides
+>Vibrio species:
+1] Vibrio cholera
+2] Vibrio parahaemolyticus
+3] Vibrio damsela
+>Citrobacter species:
+1] Citrobacter koseri
+2] Citrobacter freundii
+>Enterobacter species:
+1] Enterobacter cloacae,
+2] Enterobacter aerogenes)
+>Escherichia coli
+>Klebsiella species:
+1] Klebsiella ozaenae
+2] Klebsiella pneumoniae
+3] Klebsiella rhinoscleromatis
+>Morganella species
+1] (Morganella morganii)
+>Proteus species:
+1] Proteus mirabilis
+2] Proteus vulgaris
+>Providencia species:
+1] Providencia_rettgeri
+2] Providencia stuartii
+Salmonella
+Serratia
+Shigella
