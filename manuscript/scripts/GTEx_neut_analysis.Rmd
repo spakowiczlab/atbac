@@ -1,0 +1,178 @@
+---
+title: "VAT Neut analysis"
+output: html_document
+---
+
+#split data 
+```{r split file, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+## split file
+library(XML)
+library(annotate)
+library(EnsDb.Hsapiens.v86)
+gct <- read.table("../../data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_reads.gct", 
+                header = TRUE,
+                skip = 2)
+gct_nd <- data.frame(Name = as.character(gct$Name),
+                description=as.character(gct$Description))
+gct_nd$GENEID <- gsub("^(.*)\\.\\d+$","\\1",gct_nd$Name)
+hugo <- select(EnsDb.Hsapiens.v86, key=gct_nd$GENEID,
+               columns="SYMBOL",
+               keytype="GENEID")
+which(colnames(gct)=="GTEX.QEG4.0006.SM.2I5FY")
+library(dplyr)
+z <- left_join(hugo,gct_nd)
+a <- dplyr::select(z,Name,SYMBOL)
+ciber <- left_join(a,gct)
+ciber$id <- seq_len(nrow(ciber))
+dat <- ciber[,4:17385]
+
+library(WGCNA)
+col_ciber=collapseRows(datET=dat, rowGroup = ciber$SYMBOL, 
+                       rowID = as.factor(ciber$id))
+collapsed <- col_ciber$datETcollapsed
+b <- seq(500, 17382, 500)
+splitcib <- lapply(seq_along(b), function(i) collapsed[,(b-499)[i]:b[i]])
+names(splitcib) <- paste0("ciber_",seq(1,34,1))
+setwd("/fs/scratch/PAS1479/ciber_file/ciber_split(500)")
+library(tibble)
+lapply(1:length(splitcib), function(i) write.table(rownames_to_column(data.frame(splitcib[[i]]), var = "genetype") %>% as_tibble(), 
+                                                file = paste0(names(splitcib[i]), ".txt"),
+                                                row.names = TRUE,
+                                                sep="\t",
+                                                quote = FALSE))
+ write.table(rownames_to_column(data.frame(collapsed[,17001:17382]), var = "genetype") %>% as_tibble(), file="ciber_87.txt", row.names = TRUE, sep="\t", quote = FALSE) 
+
+```
+
+#create sample location key
+```{r prepare tissue}
+
+library(data.table)
+library(tidyverse)
+
+setwd("/fs/scratch/PAS1479/ciber_file")
+# Read in expression data
+x <- data.table::fread("../data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_reads.gct", 
+                       skip = 2, 
+                       header = TRUE)
+# Select just the sample IDs
+df <- data.frame(SAMPID = colnames(x)[-c(1:2)])
+
+# Read in the sample Annotations
+loc <- fread("../data/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt",
+             header = TRUE)
+
+# Select the sample ID and tissue origin
+loc.df <- loc %>%
+  select(SAMPID, SMTS)
+
+# Join
+loc.key <- inner_join(df, loc.df)
+
+# Sanity check
+# Answer should be TRUE
+nrow(loc.key) == nrow(df)
+# Write location key as fie
+write.csv(loc.key, "../data/GTEX_v8_sample-location-key.csv")
+
+```
+
+
+##combine deconv data
+```{r combine deconvolved data}
+library(readr)
+library(tibble)
+library(dplyr)
+## combine results
+
+files_CUS <- list.files(path = "../data/CIBERSORT/CIBERSORTx-deconvolved/GTEx", pattern = "*_CUS.csv", full.names = T)
+ciber_CUS <- sapply(files_CUS, read_csv, simplify=FALSE) %>% bind_rows(.id = "id")
+ciber_CUS$Mixture <- as.factor(ciber_CUS$Mixture)
+ciber_CUS$Mixture <- gsub("(GTEX)\\.(.*)\\.(\\d+)\\.(.*)\\.(SM)\\.(.*)", "\\1\\-\\2\\-\\3\\-\\4\\-\\5\\-\\6",ciber_CUS$Mixture)
+ciber_CUS$Mixture <- gsub("(GTEX)\\.(.*)\\.(\\d+)\\.(SM)\\.(.*)", "\\1\\-\\2\\-\\3\\-\\4\\-\\5",ciber_CUS$Mixture)
+VAT <- data.frame(ciber_CUS$Mixture, ciber_CUS$`V neutrophil`)
+colnames(VAT) <- c("Sample", "VAT_Neutrophil")
+files_LM <- list.files(path = "../data/CIBERSORT/CIBERSORTx-deconvolved/GTEx", pattern = "*_LM22.csv", full.names = T)
+ciber_LM <- sapply(files_LM, read_csv, simplify=FALSE) %>% bind_rows(.id = "id")
+ciber_LM$Mixture <- as.factor(ciber_LM$Mixture)
+ciber_LM$Mixture <- gsub("(GTEX)\\.(.*)\\.(\\d+)\\.(.*)\\.(SM)\\.(.*)", "\\1\\-\\2\\-\\3\\-\\4\\-\\5\\-\\6",ciber_LM$Mixture)
+ciber_LM$Mixture <- gsub("(GTEX)\\.(.*)\\.(\\d+)\\.(SM)\\.(.*)", "\\1\\-\\2\\-\\3\\-\\4\\-\\5",ciber_LM$Mixture)
+neut <- data.frame(ciber_LM$Mixture, ciber_LM$Neutrophils)
+colnames(neut) <- c("Sample", "Blood_Neutrophil")
+dat <- left_join(VAT,neut)
+```
+
+
+
+```{r prepare plot data}
+library(tidyr)
+GTEx_Portal <- read_csv("../data/GTEX_v8_sample-location-key.csv")
+GTEx_temp <- data.frame(GTEx_Portal$SMTS,GTEx_Portal$SAMPID)
+colnames(GTEx_temp) <- c("Tissue", "Sample")
+ncib <- left_join(GTEx_temp,dat)
+
+#reshape data to plot
+dat_plot <- ncib %>% 
+  gather("cell_type", "relative_abundance", 3:4)
+
+
+#order tissue by VAT 
+tiskey <- data.frame(unique(ncib$Tissue))
+tiskey$med_VAT <- sapply (1:nrow(tiskey), function(i) median(ncib$VAT_Neutrophil[which(tiskey$unique.ncib.Tissue.[i] == ncib$Tissue)]))
+tiskey$med_blood <- sapply (1:nrow(tiskey), function(i) median(ncib$Blood_Neutrophil[which(tiskey$unique.ncib.Tissue.[i] == ncib$Tissue)]))
+tiskey$sum_VAT <- sapply (1:nrow(tiskey), function(i) sum(ncib$VAT_Neutrophil[which(tiskey$unique.ncib.Tissue.[i] == ncib$Tissue)]))
+tiskey$sum_blood <- sapply (1:nrow(tiskey), function(i) sum(ncib$Blood_Neutrophil[which(tiskey$unique.ncib.Tissue.[i] == ncib$Tissue)]))
+# tiskey$type <- tiskey$sum_VAT > tiskey$sum_blood
+tiskey <- tiskey[order(tiskey$med_VAT),] %>%
+  rename("Tissue" = "unique.ncib.Tissue.")
+
+
+
+# #t test and find the tissue order for p value 
+# xxxx <- lapply(1:30, function(i) dat_plot[which(dat_plot$Tissue == lev[i]),])
+# test <- lapply(1:length(lev), function(i) kruskal.test(cell_type ~ relative_abundance,data = xxxx[[i]]))
+# pv <- sapply(1:length(lev), function(i) test[[i]][3])
+# pv <- do.call(rbind.data.frame, pv)
+# pv$tissue <- lev
+# colnames(pv) <- c("p_value","tissue")   
+# pv <- pv[order(pv$p_value, decreasing = TRUE),]
+
+#reorder the level of dat_plot$Tissue to change the y axis (change based on which order y axis should be)
+dat_plot$Tissue <- factor(dat_plot$Tissue, levels = tiskey$Tissue)
+dat_plot <- dat_plot [!duplicated(dat_plot ),] %>%
+  mutate(patnum = as.numeric(as.factor(Tissue)))
+numpatkey <- dat_plot %>%
+  select(Tissue, patnum)
+numpatkey <- numpatkey[!duplicated(numpatkey),] %>%
+  left_join(tiskey) %>%
+  mutate(type = ifelse(sum_VAT > sum_blood,"VAT_Neutrophil","Blood_Neutrophil"),
+         ylow = patnum - .45,
+         yhigh = patnum + .45,
+         xmin = 0,
+         xmax = 0.75) %>%
+  gather(xmin, xmax, key = "end", value = "x")
+
+
+```
+
+## Including Plots
+
+
+```{r pressure, echo=FALSE}
+library(ggplot2)
+library(tidyr)
+ggplot ()+
+  # geom_boxplot(data = dat_plot, aes(x = relative_abundance, y = Tissue, fill = cell_type))+
+  geom_rect(data = numpatkey, mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 1, fill=type), inherit.aes = F,show.legend = F, alpha = 0.3)+
+  geom_boxplot(data = dat_plot, aes(x = as.factor(patnum), y = relative_abundance, fill = cell_type), inherit.aes = F, show.legend = T, outlier.size = 0.3)+
+  scale_x_discrete(breaks = unique(numpatkey$patnum), labels = unique(numpatkey$Tissue))+
+  theme(axis.text.x = element_text(size=10, angle=0))+
+  theme_bw()+
+  scale_fill_manual(values=c("tomato","gold"), breaks = c("Blood_Neutrophil","VAT_Neutrophil"), name = "neutrophil type")+
+  xlab("Tissue")+
+  ylab("Relative Abundance")+
+  coord_flip()
+  ggsave("../figures/GTEx_VAT.png", height = 8, width =6)
+  
+```

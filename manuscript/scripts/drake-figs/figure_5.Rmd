@@ -1,0 +1,99 @@
+---
+title: "Figure 2"
+author: "Rebecca Hoyd"
+date: "3/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(forcats)
+library(ggdendro)
+```
+
+# Drake targets
+
+```{r}
+loadd(siggenes.long)
+loadd(siggenes.celldend)
+loadd(siggenes.enriched)
+loadd(deconvolved.fractions)
+```
+
+# Panel A: Heatmap
+
+```{r}
+siggenes.long %>%
+  ggplot(aes(x = gene,
+         y = celltype,
+         fill = log(counts))) +
+  geom_tile(show.legend = F) +
+  labs(x = "", y = "") +
+  scale_fill_distiller(palette = "YlOrRd", type = "seq") +
+  theme_void() +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.y = element_text(hjust = 0)) 
+ggsave("../../figures/heatmap_ggplot_neutsig.pdf", height = 5, width = 7)
+```
+
+# Panel B: Heatmap dendrogram
+
+```{r}
+ggdendrogram(siggenes.celldend, rotate = T) +
+  ggsave("../../figures/dendrogram_signature-matrix-immunecells.pdf")
+```
+
+# Panel C: Bar plot
+
+```{r}
+ggplot(siggenes.enriched, aes(x = reorder(NAME, difference), y = difference)) +
+  geom_col(aes(fill = celltype)) +
+  scale_fill_manual(breaks = c("at", "blood"), values = c("orange", "darkred"),
+                    labels = c("AT", "Blood"), name = "") +
+  labs(title = "Greatest differences between blood and adipose tissue neutrophil \nsignal genes", x = "",
+       y = "Difference in signal gene counts") +
+  coord_flip() +
+  theme_bw()
+ggsave("../../figures/Fig5_LDA_blood-vat.png")
+```
+
+# Panel D: Stacked Bar, with boxplot inset
+
+```{r}
+deconvolved.fractions %>%
+  ggplot(aes(x = Input.Sample, 
+             y = predfrac, 
+             fill = fct_relevel(celltype, "Other", "V.neutrophil", "Blood.neutrophil"))) + 
+  geom_col() +
+  facet_wrap(vars(ifelse(source == "blood", "Blood", "VAT")),  
+             scales = "free_x")+
+  scale_fill_manual(breaks = c("Other", "V.neutrophil", "Blood.neutrophil"), 
+                    values = c("grey", "bisque", "firebrick"),
+                    labels = c("Other", "VAT neutrophil", "Blood neutrophil"),
+                    name = "Predicted Cell Type") +
+  labs(x = "", y = "Cell fraction") +
+  theme_bw() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) 
+ggsave("../../figures/Fig5_stackedbar.pdf", height = 4, width = 6)
+```
+
+```{r}
+deconvolved.fractions  %>%
+  filter(celltype != "Other") %>%
+  ggplot(aes(x = source, y = predfrac, fill = celltype)) +
+  geom_boxplot(show.legend = F) +
+  scale_fill_manual(breaks = c("Blood.neutrophil", "V.neutrophil"), 
+                    values = c("firebrick", "bisque"),
+                    name = "Predicted tissue source",
+                    labels = c("Blood", "Visceral Adipose Tissue") 
+                    )+
+  labs(x = "Tissue source", y = "Predicted cell fraction") +
+  scale_x_discrete(breaks = c("blood", "VAT"),
+                   labels = c("Blood", "VAT"))+
+  # scale_x_discrete() + 
+  theme_bw() 
+ggsave("../../figures/fig5_boxplot.pdf", height = 2, width = 4)
+```

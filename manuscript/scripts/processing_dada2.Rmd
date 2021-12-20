@@ -1,0 +1,218 @@
+---
+title: "dada2 processing"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dada2)
+library(ShortRead)
+library(ggplot2)
+library(dplyr)
+library(tibble)
+library(tidyr)
+```
+
+# Locate fastqs
+```{r}
+path <- "/fs/scratch/PAS1479/atbac/atbac-fastq/" # CHANGE ME to the directory containing the fastq files after unzipping.
+fns <- list.files(path, full.names = T)
+fns <- unlist(lapply(fns, function(x) list.files(x, full.names = T)))
+
+fastqs <- fns[grepl(".fastq.gz$", fns)]
+fastqs <- sort(fastqs) # Sort ensures forward/reverse reads are in same order
+fnFs <- fastqs[grepl("_R1", fastqs)] # Just the forward read files
+fnRs <- fastqs[grepl("_R2", fastqs)] # Just the reverse read files
+# Get sample names, assuming files named as so: SAMPLENAME_XXX.fastq
+sample.names <- gsub(".*C_SpakowiczD_(.*)_V1C_.*", "\\1", fnFs)
+```
+
+# Check read quality
+
+## forward reads
+```{r}
+plotQualityProfile(fnFs[[1]])
+plotQualityProfile(fnFs[[2]])
+```
+
+## reverse reads
+```{r}
+plotQualityProfile(fnRs[[1]])
+plotQualityProfile(fnRs[[2]])
+```
+
+# Filter + Trim
+```{r}
+filt_path <- file.path(path, "filtered")
+if(!file_test("-d", filt_path)) dir.create(filt_path)
+filtFs <- file.path(filt_path, paste0(sample.names, "_F_filt.fastq.gz"))
+filtRs <- file.path(filt_path, paste0(sample.names, "_R_filt.fastq.gz"))
+# Filter
+for(i in seq_along(fnFs)) {
+  fastqPairedFilter(c(fnFs[i], fnRs[i]), c(filtFs[i], filtRs[i]),
+                    truncLen=c(290,200), 
+                    maxN=0, maxEE=c(3,5), truncQ=2, rm.phix=TRUE,
+                    compress=TRUE, verbose=TRUE)
+}
+```
+
+
+# Perform using a batch job with high walltime
+## Dereplicate
+
+```{r}
+derepFs <- derepFastq(filtFs, verbose=TRUE)
+derepRs <- derepFastq(filtRs, verbose=TRUE)
+# Name the derep-class objects by the sample names
+names(derepFs) <- sample.names
+names(derepRs) <- sample.names
+```
+
+## Error rates
+```{r}
+dadaFs.lrn <- dada(derepFs, err=NULL, selfConsist = TRUE, multithread=TRUE)
+errF <- dadaFs.lrn[[1]]$err_out
+
+dadaRs.lrn <- dada(derepRs, err=NULL, selfConsist = TRUE, multithread=TRUE)
+errR <- dadaRs.lrn[[1]]$err_out
+
+plotErrors(dadaFs.lrn[[1]], nominalQ=TRUE)
+```
+
+## Sample inference
+```{r}
+dadaFs <- dada(derepFs, err=errF, multithread=TRUE)
+dadaRs <- dada(derepRs, err=errR, multithread=TRUE)
+
+dadaFs[[1]]
+```
+
+## Merge paired reads
+```{r}
+mergers <- mergePairs(dadaFs, derepFs, dadaRs, derepRs, verbose=TRUE)
+# Inspect the merger data.frame from the first sample
+head(mergers[[1]])
+```
+
+## Get sequence table
+
+```{r}
+seqtab <- makeSequenceTable(mergers[names(mergers) != "Mock"])
+
+dim(seqtab)
+table(nchar(getSequences(seqtab)))
+```
+
+## Remove chimeras
+```{r}
+seqtab.nochim <- removeBimeraDenovo(seqtab, verbose=TRUE)
+dim(seqtab.nochim)
+
+sum(seqtab.nochim)/sum(seqtab)
+```
+
+# Assign taxonomy
+```{r}
+seqtab.nochim <- readRDS("../data/seqtabNoC_update.RDS")
+taxa <- assignTaxonomy(seqtab.nochim, "../../../db/dada2/silva_nr_v123_train_set.fa.gz")
+unname(head(taxa))
+
+saveRDS(taxa, "../data/tax_update.RDS")
+# taxa <- readRDS("../data/tax_update.RDS")
+```
+
+
+
+
+# Check assigment success at different read lengths
+
+## Get starting object
+
+```{r}
+seqtabNoC <- readRDS("../data/seqtabNoC_update.RDS")
+tax <- readRDS(("../data/tax_update.RDS"))
+
+seqsums <- colSums(seqtabNoC) %>%
+  as.data.frame() %>%
+  # t() %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sequence") %>%
+  rename("total.count" = ".") %>%
+  mutate(seqlen = nchar(Sequence))
+
+
+taxcounts <- tax %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sequence")
+  left_join(seqsums) %>%
+  mutate(king.isclass = !is.na(Kingdom))
+```
+## Get desired counts
+
+```{r}
+summary(taxcounts$seqlen)
+
+cutset <- seq(290,480,10)
+
+desc.ret <- list()
+
+for(u in cutset){
+  tcount.tmp <- taxcounts %>%
+    filter(seqlen > u)
+  reads.remaining = sum(tcount.tmp$total.count)
+  percent.seq.class <- mean(tcount.tmp$king.isclass)
+  percent.read.class <- tcount.tmp %>%
+    group_by(king.isclass) %>%
+    summarise(groupcount = sum(total.count))
+  percent.read.class <- percent.read.class$groupcount[2]/sum(percent.read.class$groupcount)
+  
+  tmp <- c(u, percent.seq.class, percent.read.class, reads.remaining)
+  names(tmp) <- c("cutoff", "seqclass", "readclass", "reads.remaining")
+  desc.ret[[u]] <- tmp
+}
+desc.ret.df <- bind_rows(desc.ret)
+```
+
+## plot
+
+```{r}
+desc.ret.df %>%
+  gather(-cutoff, -reads.remaining, key = "counttype", value = "percent.classified") %>%
+  ggplot(aes(x = cutoff, y = reads.remaining, color = percent.classified)) +
+  geom_point() +
+  facet_wrap(vars(ifelse(counttype == "readclass", "Reads", "Sequences"))) +
+  scale_fill_distiller(aesthetics = c("color", "fill"), palette = "RdYlBu",
+                       direction = -1, name = "Percent Classified") +
+  labs(x = "Minimum read length", y = "# Reads remaining") +
+  theme_bw() +
+  ggsave("../figures/percent-reads-and-sequences-classified.png")
+```
+
+# Test sequence lengths, filter
+```{r}
+l <- nchar(colnames(seqtabNoC))
+# l <- as.data.frame(cbind(l, hold = NA))
+# hist(l$l, 500)
+# 
+# ggplot(l, aes(x = l)) +
+#   geom_histogram(bins = 500) +
+#   ggsave("../figures/dada2-nchar-histogram.png")
+```
+
+```{r}
+longenough <- l > 340 & l < 440
+sum(longenough) / length(longenough)
+
+seqtabNoCf <- seqtabNoC[, longenough]
+taxf <- tax[longenough, ]
+```
+
+# Save filtered tables
+```{r}
+saveRDS(seqtabNoCf, file = "../data/seqtabNoCf_update.RDS")
+saveRDS(taxf, file = "../data/taxf_update.RDS")
+```
+
+
+

@@ -1,0 +1,24 @@
+---
+title: "Make fig pipeline"
+author: "Rebecca Hoyd"
+date: "3/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+dep.files <- list.files("R", full.names = T)
+lapply(dep.files, function(x) source(x))
+source("COAD_ra_path.R")
+```
+
+```{r}
+make(plan, verbose = 2)
+
+drake_ggraph(plan, label_nodes = TRUE, targets_only = TRUE)
+
+```

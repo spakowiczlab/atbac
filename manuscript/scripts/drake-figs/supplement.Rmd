@@ -1,0 +1,44 @@
+---
+title: "Supplement"
+author: "Rebecca Hoyd"
+date: "7/13/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(flextable)
+library(dplyr)
+```
+
+
+```{r}
+accession.table <- read.csv("../../data/DESeq2/summarize-neutrgroup-sources.csv", stringsAsFactors = F)
+```
+
+# Table S2
+
+```{r}
+flextable(accession.table, cwidth = 2, cheight = 1.25)
+```
+
+# Table S4
+
+```{r}
+blood.files <- list.files("../../data/ncbi_processed/", pattern = "^Blood.*.txt")
+blood.accession <- gsub(".*(GSE\\d+).*", "\\1", blood.files)
+blood.accession <- as.data.frame(cbind(accession = c(blood.accession, "GSE19790"),
+                                       tissue = "Blood"))
+
+
+vat.files <- list.files("../../data/ncbi_processed/", pattern = "^VAT.*.txt")
+vat.accession <- gsub(".*(GDS\\d+).*", "\\1", vat.files)
+vat.accession <- as.data.frame(cbind(accession = c(vat.accession, "GSE71415"),
+                                     tissue = "VAT"))
+```
+
+```{r}
+bind_rows(blood.accession, vat.accession) %>%
+  flextable(cwidth = 1)
+```

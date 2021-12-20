@@ -1,0 +1,364 @@
+---
+title: "DESeq2 analysis on many neutrophil groups"
+author: "Rebecca Hoyd"
+date: "September 3, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(DESeq2)
+library(WGCNA)
+```
+
+# Load data 
+
+```{r}
+bldvat <- read.table("../data/ncbi_processed/iso_bldvat.txt", 
+                     sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+bldvat.meta <- readRDS("../data/ncbi_processed/meta_bldvat.RDS")
+
+sepsis <- read.table("../data/ncbi_processed/iso_sepsis.txt",
+                     sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+sepsis.meta <- readRDS("../data/ncbi_processed/meta_sepsis.RDS")
+
+tb <- read.table("../data/ncbi_processed/iso_tb.txt",
+                 sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+tb.meta <- readRDS("../data/ncbi_processed/meta_tb.RDS")
+
+exercise <- read.table("../data/ncbi_processed/iso_exercise.txt",
+                       sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+exercise.meta <- readRDS("../data/ncbi_processed/meta_exercise.RDS")
+
+endotox <- read.table("../data/ncbi_processed/iso_endotox.txt",
+                      sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+endotox.meta <- readRDS("../data/ncbi_processed/meta_endotox.RDS")
+
+syno <- read.table("../data/ncbi_processed/iso_syno_GSE116899.txt",
+                   sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+syno.meta <- readRDS("../data/ncbi_processed/meta_syno.RDS")
+
+lcanc <- read.table("../data/ncbi_processed/iso_lung-canc_GSE68795.txt", 
+                    sep = "\t", header = T, stringsAsFactors = F)
+lcanc.meta <- read.csv("../data/ncbi_processed/meta_lung-canc.csv", stringsAsFactors = F)
+
+datsource <- c("bldvat", "endotox", "exercise", "sepsis", "tb", "syno", "lcanc", "airspace")
+```
+
+# Formatting for DESeq2 
+
+This includes choosing samples belonging to the groups we want and ensuring that the sample order of the meta tables matches that of the expression tables.
+
+## Blood vs. VAT
+
+```{r}
+bldvat.meta <- bldvat.meta %>%
+  mutate(sample = as.character(sample),
+         source = ifelse(source == "VAT", "treatment", "control")) %>%
+  arrange(sample)
+
+bldvat <- bldvat %>%
+  column_to_rownames(var = "Gene") %>%
+  dplyr::select(bldvat.meta$sample)
+
+identical(bldvat.meta$sample, colnames(bldvat))
+```
+
+## Sepsis vs. healthy
+
+```{r}
+sepsis.meta <- sepsis.meta %>%
+  mutate(source = ifelse(`sample_type:ch1` == "Patient", "treatment", "control")) %>%
+  arrange(geo_accession)
+
+sepsis <- sepsis %>%
+  gather(-Gene, key = "sample", value = "count") %>%
+  mutate(count = round(count)) %>%
+  spread(key = "sample", value = "count") %>%
+  column_to_rownames(var = "Gene") %>%
+  dplyr::select(sepsis.meta$geo_accession)
+
+identical(sepsis.meta$geo_accession, colnames(sepsis))
+```
+
+## TB activation
+
+```{r}
+tb.meta <- tb.meta %>%
+  filter(grepl("Neut", title)) %>%
+  mutate(source = ifelse(grepl("Control", characteristics_ch1.3), "control", "treatment")) %>% 
+  arrange(geo_accession)
+
+tb <- tb %>%
+  gather(-Gene, key = "sample", value = "count") %>%
+  mutate(count = round(count)) %>%
+  spread(key = "sample", value = "count") %>%
+  column_to_rownames(var = "Gene") %>%
+  dplyr::select(tb.meta$geo_accession)
+
+identical(tb.meta$geo_accession, colnames(tb))
+
+```
+## Airspace neutrophils
+
+```{r}
+airspace.meta <- endotox.meta %>%
+  filter(cell.type != "in vitro") %>%
+  mutate(source = ifelse(cell.type == "circulating", "control", "treatment"),
+         sample = as.character(sample)) %>%
+  arrange(sample)
+
+airspace <- endotox %>%
+  gather(-Gene, key = "sample", value = "count") %>%
+  mutate(count = round(count)) %>%
+  spread(key = "sample", value = "count") %>%
+  column_to_rownames(var = "Gene") %>%
+  dplyr::select(airspace.meta$sample)
+
+identical(airspace.meta$sample, colnames(airspace))
+```
+
+## Endotoxin activation
+
+```{r}
+endotox.meta <- endotox.meta %>%
+  filter(cell.type == "circulating") %>%
+  mutate(source = ifelse(agent == "endotoxin", "treatment", "control"),
+         sample = as.character(sample)) %>%
+  arrange(sample)
+
+endotox <- endotox %>%
+  gather(-Gene, key = "sample", value = "count") %>%
+  mutate(count = round(count)) %>%
+  spread(key = "sample", value = "count") %>%
+  column_to_rownames(var = "Gene") %>%
+  dplyr::select(endotox.meta$sample)
+
+identical(endotox.meta$sample, colnames(endotox))
+```
+
+## Exercise activation
+
+```{r}
+exercise.meta <- exercise.meta %>%
+  mutate(source = ifelse(protocol == "after exercise", "treatment", "control"),
+         sample = as.character(sample)) %>%
+  arrange(sample)
+
+exercise <- exercise %>%
+  gather(-Gene, key = "sample", value = "count") %>%
+  mutate(count = round(count)) %>%
+  spread(key = "sample", value = "count") %>%
+  column_to_rownames(var = "Gene") %>%
+  dplyr::select(exercise.meta$sample)
+
+identical(exercise.meta$sample, colnames(exercise))
+```
+
+## Synovial 
+
+```{r}
+syno.meta <- syno.meta %>%
+  mutate(sample = as.character(sampnames),
+         source = ifelse(tissue == "synovial", "treatment", "control")) %>%
+  arrange(sample)
+
+syno <- syno %>%
+  column_to_rownames(var = "Gene") %>%
+  dplyr::select(syno.meta$sample)
+
+identical(syno.meta$sample, colnames(syno))
+```
+
+## Lung cancer
+
+```{r}
+lcanc.meta <- lcanc.meta %>%
+  mutate(sample = as.character(samps),
+         source = ifelse(status == "tumor", "treatment", "control")) %>%
+  arrange(sample)
+
+lcanc <- lcanc %>%
+  column_to_rownames(var = "Entrez")
+lcanc <- collapseRows(lcanc[,-1], rowGroup = lcanc$Symbol, rowID = rownames(lcanc))
+lcanc <- lcanc$datETcollapsed %>%
+  as.data.frame() %>%
+  dplyr::select(lcanc.meta$sample)
+
+identical(lcanc.meta$sample, colnames(lcanc))
+```
+
+
+
+## Make lists
+
+```{r}
+expls <- list(bldvat, endotox, exercise, sepsis, tb, syno, lcanc, airspace)
+metals <- list(bldvat.meta, endotox.meta, exercise.meta, sepsis.meta, tb.meta, syno.meta, lcanc.meta, airspace.meta)
+
+names(expls) <- datsource
+names(metals) <- datsource
+```
+
+# Run DESeq2 and acquire results
+
+```{r}
+dds <- lapply(datsource, function(x) DESeqDataSetFromMatrix(countData = expls[[x]],
+                                                            colData = metals[[x]],
+                                                            design = ~source))
+names(dds) <- datsource
+
+dds <- lapply(dds, function(x) DESeq(x))
+
+dds.res <- lapply(dds, function(x) as.data.frame(results(x, name = "source_treatment_vs_control"))%>%
+                                                   rownames_to_column(var = "Gene")) 
+```
+
+```{r}
+lapply(datsource, function(x) write.csv(dds.res[[x]],
+                                        paste("../data/DESeq2/", x, ".csv", sep = ""),
+                                        row.names = FALSE))
+
+lapply(datsource, function(x) write.table(dds.res[[x]] %>% 
+                                            filter(log2FoldChange > 0 & padj <= 0.05) %>% 
+                                            dplyr::select("Gene"),
+                                          paste("../data/DAVID/input/fig2_", x, ".txt", sep = ""),
+                                          row.names = FALSE, quote = FALSE, col.names = FALSE))
+
+lapply(datsource, function(x) write.table((dds.res[[x]] %>% 
+                                            filter(log2FoldChange > 0) %>% 
+                                            arrange(padj) %>%
+                                            dplyr::select("Gene"))[1:200,],
+                                          paste0("../data/DAVID/input/fig2_top200_", x, ".txt"),
+                                          row.names = FALSE, quote = FALSE, col.names = FALSE))
+
+```
+
+# Format results for Upsettr and other comparisons
+```{r}
+allgenes <- unique(c(dds.res$bldvat$Gene, dds.res$endotox$Gene, dds.res$exercise$Gene, 
+                     dds.res$sepsis$Gene, dds.res$tb$Gene, dds.res$lcanc$Gene, 
+                     dds.res$syno$Gene, dds.res$airspace$Gene))
+```
+
+## Enriched in treatment
+
+```{r}
+allsig.treat <- lapply(datsource, function(x) dds.res[[x]] %>% 
+                         filter(log2FoldChange > 0 & padj <= 0.05) %>% 
+                         mutate(neutset = x) %>%
+                         dplyr::select(neutset, Gene))
+
+allsig.treat <- bind_rows(allsig.treat) %>%
+  mutate(belongs = 1) %>%
+  spread(key = "neutset", value = "belongs") %>%
+  gather(-Gene, key = "neutset", value = "belongs") %>%
+  mutate(belongs = ifelse(is.na(belongs), 0, 1))%>%
+  spread(key = "neutset", value = "belongs")
+  
+```
+
+```{r}
+write.csv(allsig.treat, "../data/DESeq2/compare-genes_treat.csv", row.names = FALSE)
+```
+
+## Enriched in control
+
+```{r}
+allsig.control <- lapply(datsource, function(x) dds.res[[x]] %>% 
+                         filter(log2FoldChange < 0 & padj <= 0.05) %>% 
+                         mutate(neutset = x) %>%
+                         dplyr::select(neutset, Gene))
+
+allsig.control <- bind_rows(allsig.control) %>%
+  mutate(belongs = 1) %>%
+  spread(key = "neutset", value = "belongs") %>%
+  gather(-Gene, key = "neutset", value = "belongs") %>%
+  mutate(belongs = ifelse(is.na(belongs), 0, 1))%>%
+  spread(key = "neutset", value = "belongs")
+  
+```
+
+```{r}
+write.csv(allsig.control, "../data/DESeq2/compare-genes_control.csv", row.names = FALSE)
+```
+
+# Table summarizing data sources for treatment, control
+
+Need: neutrophil tissue, neutrophil treatment if applicable, treament/control group
+
+```{r}
+iso.grouplabs <- unique(airspace.meta[,c("cell.type", "agent", "source")]) %>%
+  mutate(accession = "GSE2322",
+         Neutrophil.Group.Label = "Airspace") %>%
+  add_row(cell.type = "blood",agent = NA, source = "control", accession = NA,
+          Neutrophil.Group.Label = "VAT") %>%
+  add_row(cell.type = "VAT",agent = NA, source = "treatment", accession = NA,
+          Neutrophil.Group.Label = "VAT") %>%
+  add_row(cell.type = "blood",agent = "untreated", source = "control", accession = "GSE2322",
+          Neutrophil.Group.Label = "Endotox") %>%
+  add_row(cell.type = "blood",agent = "endotoxin", source = "treatment", accession = "GSE2322",
+          Neutrophil.Group.Label = "Endotox") %>%
+  add_row(cell.type = "blood",agent = "before exercise", source = "control", accession = "GSE8668",
+          Neutrophil.Group.Label = "Exercise") %>%
+  add_row(cell.type = "blood",agent = "after exercise", source = "treatment", accession = "GSE8668",
+          Neutrophil.Group.Label = "Exercise") %>%
+  add_row(cell.type = "lung",agent = "normal tissue", source = "control", accession = "GSE68795",
+          Neutrophil.Group.Label = "Lung.Cancer") %>%
+  add_row(cell.type = "lung",agent = "tumor", source = "treatment", accession = "GSE68795",
+          Neutrophil.Group.Label = "Lung.Cancer") %>%
+  add_row(cell.type = "blood",agent = "Healthy control", source = "control", accession = "GSE64457",
+          Neutrophil.Group.Label = "Sepsis") %>%
+  add_row(cell.type = "blood",agent = "Patient", source = "treatment", accession = "GSE64457",
+          Neutrophil.Group.Label = "Sepsis") %>%
+  add_row(cell.type = "blood",agent = "blood", source = "control", accession = "GSE116899",
+          Neutrophil.Group.Label = "Synovial") %>%
+  add_row(cell.type = "synovial",agent = "synovial", source = "treatment", accession = "GSE116899",
+          Neutrophil.Group.Label = "Synovial") %>%
+  add_row(cell.type = "blood", agent = "healthy", source = "control", accession = "GSE19443",
+          Neutrophil.Group.Label = "Active.TB") %>%
+  add_row(cell.type = "blood",agent = "Active.TB", source = "treatment", accession = "GSE19443",
+          Neutrophil.Group.Label = "Active.TB") %>%
+  mutate(agent = as.character(agent),
+         agent = ifelse(Neutrophil.Group.Label == "Airspace", NA, agent))
+
+iso.grouplabs <- iso.grouplabs[!duplicated(iso.grouplabs),]
+
+iso.grouplabs <- iso.grouplabs %>%
+  mutate(cell.type = as.character(cell.type),
+         agent = ifelse(is.na(agent), cell.type, agent)) %>%
+  group_by(Neutrophil.Group.Label) %>%
+  mutate(cell.type = paste(unique(cell.type), collapse = ", ")) %>%
+  spread(key = "source", value = "agent") %>%
+  rename("cell.type" = "tissue.source") %>%
+  select(Neutrophil.Group.Label, accession, tissue.source, control, treatment)
+
+write.csv(iso.grouplabs, "../data/DESeq2/summarize-neutrgroup-sources.csv", row.names = F)
+```
+
+# Check lean and obese AT
+
+```{r}
+checkobe.meta <- bldvat.meta %>%
+  filter(source == "VAT")
+
+checkobe <- bldvat %>%
+  select(c("Gene", checkobe.meta$sample)) %>%
+  column_to_rownames(var = "Gene")
+
+obe.dds <- DESeqDataSetFromMatrix(countData = checkobe, colData = checkobe.meta, design = ~obes.stat)
+obe.dds <- DESeq(obe.dds)
+obe.res <- results(obe.dds, name = "obes.stat_obese_vs_lean") %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene") %>%
+  arrange(padj) %>%
+  mutate(enriched.in = ifelse(log2FoldChange < 0, "Lean", "Obese"))
+
+obe.res %>%
+  filter(padj < 0.05) %>%
+  write.csv("../data/DESeq2/bldvat_obese-lean.csv")
+```

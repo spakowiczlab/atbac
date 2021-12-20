@@ -1,0 +1,224 @@
+---
+title: "sourcetracker"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(HMP16SData)
+
+# library(devtools)
+# devtools::install_github("beadyallen/MGnifyR")
+library(MGnifyR)
+
+library(biomformat)
+```
+
+#Get data
+
+## HMP Data
+
+```{r}
+
+sumexp <- V35(metadata = FALSE)
+
+hmpcounts <- sumexp@assays$data$`16SrRNA` %>%
+  as.data.frame()
+hmpcounts$fulltax <- rowData(sumexp)@listData$CONSENSUS_LINEAGE
+hmpsamps <- colData(sumexp)
+addsite <- as.data.frame(cbind(sample = hmpsamps@rownames, bodsite = hmpsamps@listData$HMP_BODY_SITE))
+
+hmp.long <- hmpcounts %>%
+  gather(-fulltax, key = "sample", value = "count") %>%
+  left_join(addsite)
+
+```
+
+## MGnify Data
+```{r mgnify function definitions}
+mg <- mgnify_client( usecache=T, cache_dir='/fs/scratch/PAS1479/sourcetracker/data/MGnify_cache')
+pull_magnify <- function(x){
+  biome.samps <- mgnify_query(mg, "samples", experiment_type="amplicon",
+                               biome_name=x, instrument_platform = "Illumina", usecache = T)
+  
+  
+  analyses_accessions <- mgnify_analyses_from_samples(mg, accession = biome.samps$accession)
+  analyses_metadata <- mgnify_get_analyses_metadata(mg, analyses_accessions)
+  
+  biome.phylo <- mgnify_get_analyses_phyloseq(mg, analyses_metadata$analysis_accession)
+  return(biome.phylo)
+}
+
+phylo_to_combine_counts <- function(x){
+  biome.tax <- as.data.frame(x@tax_table) %>%
+  mutate(Phylum = ifelse(is.na(Phylum), "p__", paste0("p__", Phylum)),
+         Class = ifelse(is.na(Class), "c__", paste0("c__", Class)),
+         Order = ifelse(is.na(Order), "o__", paste0("o__", Order)),
+         Family  = ifelse(is.na(Family), "f__", paste0("f__", Family)),
+         Genus = ifelse(is.na(Genus), "g__", paste0("g__", Genus)),
+         fulltax = paste("Root", Phylum, Class, Order, Family, Genus, sep = ";") 
+  )
+  
+  biome.counts <- x@otu_table %>%
+    as.data.frame() 
+  biome.counts$fulltax <- biome.tax$fulltax
+  biome.long <- biome.counts %>%
+    gather(-fulltax, key = "sample", value = "count")
+  
+  biome.form <- biome.long %>%
+    filter(fulltax != "Root;p__;c__;o__;f__;g__") %>%
+    group_by(sample, fulltax) %>%
+    summarise(count = sum(count)) %>%
+    spread(key = "fulltax", value = "count")
+  
+  return(biome.form)
+  
+}
+
+get_mapping_info <- function(counttab, biomename){
+  mgmap <- counttab %>%
+    select(sample) %>%
+    mutate(SourceSink = "source",
+           Env = biomename)
+}
+```
+
+```{r actually pull mgnify data}
+biomes.to.pull <- c("Built environment", "Loam")
+
+phylo.list.gen <- lapply(biomes.to.pull, function(y) try(pull_magnify(y)))
+counts.mg.list <- lapply(phylo.list.gen, function(y) phylo_to_combine_counts(y))
+names(counts.mg.list) <- biomes.to.pull
+map.mg.list <- lapply(biomes.to.pull, function(y) get_mapping_info(counts.mg.list[[y]], y))
+
+```
+
+## Atbac Data
+```{r}
+taxcounts <- readRDS("../data/taxcounts_interface-DNA_no-neg-contams.RDS")%>%
+  filter(sample != "ABNEG")
+```
+
+# Format inputs
+
+## Unify taxonomy
+
+```{r Get to same labelling syntax}
+# HMP - keep in current tax format this is what we will unify to.
+
+# MGnify - done with functions around pull
+
+# atbac - similar to MGnify
+atbac.taxres <- taxcounts %>%
+  mutate(Phylum = ifelse(is.na(Phylum), "p__", paste0("p__", Phylum)),
+         Class = ifelse(is.na(Class), "c__", paste0("c__", Class)),
+         Order = ifelse(is.na(Order), "o__", paste0("o__", Order)),
+         Family = ifelse(grepl("Bacteroidales", Family), NA, Family),
+         Family  = ifelse(is.na(Family), "f__", paste0("f__", Family)),
+         Genus = ifelse(grepl("Ruminococcus", Genus), "Ruminococcus", Genus),
+         Genus = ifelse(grepl("Coprococcus", Genus), "Coprococcus", Genus),
+         Genus = ifelse(grepl("Ruminococcaceae", Genus), NA, Genus),
+         Genus = ifelse(grepl("Lachnospiraceae", Genus), NA, Genus),
+         Genus = ifelse(grepl("Ruminoclostridium", Genus), "Ruminoclostridium", Genus),
+         Genus = ifelse(grepl("Christenellaceae", Genus), NA, Genus),
+         Genus = ifelse(grepl("Prevotella", Genus), "Prevotella", Genus),
+         Genus = ifelse(is.na(Genus), "g__", paste0("g__", Genus)),
+         fulltax = paste("Root", Phylum, Class, Order, Family, Genus, sep = ";") 
+         ) %>%
+  rename("counts" = "count")
+
+
+```
+
+## Create counts matrix
+
+```{r}
+atbac.form <- atbac.taxres %>%
+    filter(fulltax != "Root;p__;c__;o__;f__;g__") %>%
+    group_by(sample, fulltax) %>%
+    summarise(count = sum(count)) %>%
+    spread(key = "fulltax", value = "count")
+
+hmp.form <- hmp.long %>%
+    filter(fulltax != "Root;p__;c__;o__;f__;g__") %>%
+    group_by(sample, fulltax) %>%
+    summarise(count = sum(count)) %>%
+    spread(key = "fulltax", value = "count")
+# allcounts.list <- lapply(list(hmp.long, builtenv.long, atbac.taxres), function(y) tax_combine_to_wide(y))
+
+allcounts.form <- bind_rows(bind_rows(counts.mg.list), atbac.form, hmp.form) %>%
+  select(-"Root") %>%
+  arrange(sample) %>%
+  column_to_rownames(var = "sample") %>%
+  t() %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Taxonomy")
+allcounts.form[is.na(allcounts.form)] <- 0
+
+# allcounts.biom <- make_biom(allcounts.form)
+```
+
+## Create mapping matrix
+
+```{r}
+
+hmpmap <- addsite %>%
+  mutate(SourceSink = "source") %>%
+  rename("bodsite" = "Env")
+
+atbacmap <- as.data.frame(cbind(sample = unique(taxcounts$sample),
+                                SourceSink = "sink",
+                                Env = paste0("VAT", 1:17)
+                                )
+                          ) 
+
+
+allmap <- bind_rows(bind_rows(map.mg.list),hmpmap,atbacmap) %>%
+  arrange(sample)
+```
+
+# Document sourcetracker commands
+
+```{r save input files}
+write.table(allcounts.form, "/fs/scratch/PAS1479/atbac/sourcetracker/otutable.txt", sep = "\t", quote = F,
+            row.names = F)
+write.table(allmap, "/fs/scratch/PAS1479/atbac/sourcetracker/map.txt", sep = "\t", quote = F, row.names = F)
+```
+
+```{r}
+# sourcetracker2 gibbs -i otutable.txt -m map.txt -o sourceout --source_sink_column source-or-sink --source_category_column sample-type --sink_rarefaction_depth 0
+```
+
+# Visualization
+
+```{r}
+sourceres <- read.table("/fs/scratch/PAS1479/atbac/sourcetracker/sourceout/mixing_proportions.txt",
+                        sep = "\t", header = T) 
+
+bmi.stat <- read.csv("../data/samples_obesity-status.csv", stringsAsFactors = F) %>%
+  select(-sample.name) %>%
+  mutate(SampleID = paste0(sequence.id, "-I")) %>%
+  left_join(sourceres) %>%
+  arrange(BMI, Gastrointestinal.Tract)
+  
+```
+
+
+```{r}
+sourceres  %>%
+  gather(!SampleID, key = "source", value = "prop") %>%
+  mutate(source = ifelse(source == "Unknown", "Other", source)) %>%
+  # filter(source != "Other") %>%
+  ggplot(aes(x = fct_relevel(SampleID, rev(bmi.stat$SampleID)), 
+             y = prop, 
+             fill = source)) +
+  geom_col(position = "fill") +
+  scale_fill_brewer(palette = "Dark2", na.value = "grey50") +
+  labs(x = "", y = "") +
+  theme_bw() +
+  theme(axis.text.x = element_blank()) +
+  ggsave("../figures/stacked-bar_sourcetracker_DNA-ordered_nocontam.png", width = 10)
+  # ggsave("../figures/stacked_bar_sourcetracker_no-other.png")
+```

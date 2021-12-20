@@ -1,0 +1,268 @@
+---
+title: "Formatting data"
+author: "Rebecca Hoyd"
+date: "August 29, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(readxl)
+library(Biobase)
+library(GEOquery)
+library(hgu133plus2.db)
+library(org.Hs.eg.db)
+library(annotate)
+library(oligo)
+# library(WGCNA)
+source("../../CIBERSORT/scripts/WCGNA/collapseRows.R")
+```
+
+This script will unpack the compressed NCBI GEO datasets we will be using for this project, collapse their probe ID's into single official gene symbols, and save the resulting tables. It will also save the meta information from the studies. I will be using this script only for the isolated neutrophils used in this project, but the table formatting is the same as what is needed to prepare mixture files for CIBERSORT.
+
+Note: Reference and phenotype class file creation for CIBERSORT is being left in atneusig/CIBERSORT for now as I don't anticipate needing to remake them in the near future, but I need to remember to show that process in this folder later
+
+```{r load geo data}
+exercise <- getGEO(filename = "../data/ncbi_raw-files/iso_exercise_GSE8668.soft.gz")
+exercise.1 <- exercise@dataTable@table
+
+sepsis <- getGEO(filename = "../data/ncbi_raw-files/iso_sepsis_GSE64457_series_matrix.txt.gz")
+
+tb <- getGEO(filename = "../data/ncbi_raw-files/iso_TB_GSE19443_series_matrix.txt.gz")
+
+endotox <- getGEO(filename = "../data/ncbi_raw-files/iso_endotoxin_GSE2322.soft.gz")
+endotox.1 <- Table(endotox)
+
+marr <- getGEO(filename = "../data/ncbi_raw-files/iso_marrow_GSE12662_series_matrix.txt.gz")
+# lcan <- getGEO(filename = "../data/ncbi_raw-files/iso_lung-canc_GSE68795_family.soft.gz")
+# syno.files <- list.files("../data/ncbi_raw-files/iso_syno_GSE116899_gsm")
+# syno <- lapply(syno.files,
+#                function(x) read.table(paste("../data/ncbi_raw-files/iso_syno_GSE116899_gsm/",
+#                                             x, "/", x, sep = ""),
+#                                       header = TRUE, sep = "\t", stringsAsFactors = FALSE))
+```
+
+# Blood mixtures
+
+```{r}
+blood1 <- getGEO(filename = "../data/ncbi_raw-files/mixture_blood_GSE137317.txt.gz")
+```
+# VAT mixtures
+```{r}
+
+```
+
+# Loading our mixtures
+```{r load our data and minor formatting}
+sampleset1 <- read_excel("../data/ampliseq_whole_transcriptome_366_counts_bcma.xls")
+samplesum1 <- read_excel("../data/ampliseq_whole_transcriptome_366_summary.xls")
+
+sampleset2 <- read_excel("../data/ionproton_251_counts_bcma.xls")
+samplesum2 <- read_excel("../data/ionproton_251_summary.xls")
+
+names(samplesum1) <- make.names(names(samplesum1))
+names(samplesum2) <- make.names(names(samplesum2))
+
+samplesum1$Sample.Name <- make.names(samplesum1$Sample.Name)
+samplesum2$Sample.Name <- make.names(samplesum2$Sample.Name)
+
+#So, number 135 has two blood neutrophil reads, but 136 is missing theirs. This seemed reasonable and follows the rest of the naming protocols.
+samplesum2$Sample.Name[8] <- "X136.Bld.Neut"
+
+```
+
+
+# Format our samples
+
+```{r formating our samples for the reference genes}
+sampleset1 <- sampleset1 %>%
+  dplyr::select(-Target,-IonXpress_022, -IonXpress_021)
+
+samplesum1 <- samplesum1[1:8, ] 
+
+colnames(sampleset1) <- c("Gene", samplesum1$Sample.Name)
+
+
+sampleset2 <- sampleset2 %>%
+  dplyr::select(-Target)
+
+colnames(sampleset2) <- c("Gene", samplesum2$Sample.Name)
+
+oursamps <- full_join(sampleset1, sampleset2) %>%
+  as.data.frame()
+
+hold <- paste("a", 1:length(oursamps$Gene), sep = "")
+rownames(oursamps) <- hold
+
+oursamps.1 <- collapseRows(oursamps[,-1], rowID = hold, rowGroup = oursamps$Gene)
+
+oursamps.2 <- oursamps.1$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+```
+
+```{r class assignments for our samples}
+ourmeta <- as.data.frame(cbind(sample = colnames(oursamps.2)[-1], source = NA)) %>%
+  mutate(source = ifelse(grepl("Bld", sample), "Blood", "VAT"),
+         obes.stat = ifelse(grepl("L.", sample), "lean", "obese"))
+
+```
+
+```{r}
+write.table(oursamps.2, "../data/ncbi_processed/iso_bldvat.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+saveRDS(ourmeta, "../data/ncbi_processed/meta_bldvat.RDS")
+```
+
+# Sepsis 
+
+```{r formatting sepsis samples for ref genes}
+ID <- featureNames(sepsis)
+GS <- mapIds(hgu133plus2.db, keys = ID, c("SYMBOL"), keytype = "PROBEID")
+GS <- as.data.frame(GS) %>%
+  rownames_to_column(var = "Gene.ID")
+colnames(GS)[2] <- "Gene.Symbol"
+
+sepsis.1 <- exprs(sepsis) %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene.ID") %>%
+  right_join(GS, .)
+
+tounlog <- colnames(sepsis.1)[-c(1,2)]
+
+for(l in tounlog){
+  sepsis.1[[l]] <- 2^sepsis.1[[l]]
+}
+
+sepsis.1 <- sepsis.1 %>%
+  filter(!is.na(Gene.Symbol)) 
+
+rownames(sepsis.1) <- sepsis.1$Gene.ID
+sepsis.2 <- collapseRows(sepsis.1[, -c(1,2)], rowGroup = sepsis.1$Gene.Symbol, rowID = sepsis.1$Gene.ID)
+
+sepsis.3 <- sepsis.2$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+
+sepsis.meta <- sepsis@phenoData@data
+```
+
+```{r}
+write.table(sepsis.3, "../data/ncbi_processed/iso_sepsis.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+saveRDS(sepsis.meta, "../data/ncbi_processed/meta_sepsis.RDS")
+```
+
+# TB
+
+```{r formatting tb samples for ref genes}
+desired <- tb@phenoData@data %>%
+  filter(source_name_ch1 == "Neutrophils from patient with Active TB")
+
+tb.1 <- exprs(tb) %>%
+  as.data.frame() 
+
+labs <- tb@featureData@data %>%
+  dplyr::select(ID, Symbol)
+
+tb.2 <- collapseRows(tb.1, rowGroup = labs$Symbol, rowID = labs$ID)
+
+tb.3 <- tb.2$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+
+killnoise <- sapply(tb.3[,-1], function(x) ifelse(x < 10, 10, x)) %>%
+  as.data.frame() %>%
+  mutate(Gene = tb.3$Gene) %>%
+  dplyr::select(Gene, everything())
+
+tb.meta <- tb@phenoData@data
+```
+
+```{r}
+write.table(killnoise, "../data/ncbi_processed/iso_tb.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+saveRDS(tb.meta, "../data/ncbi_processed/meta_tb.RDS")
+```
+
+# Exercise
+
+```{r formating exercise samples for ref genes}
+exercise.2 <- exercise.1 %>%
+  dplyr::select(ID_REF, IDENTIFIER, contains("GSM")) %>%
+  filter(IDENTIFIER != "") %>%
+  as.data.frame()
+
+rownames(exercise.2) <- exercise.2$ID_REF
+
+genekey <- exercise.2 %>%
+  dplyr::select(ID_REF, IDENTIFIER) %>%
+  as.data.frame()
+
+holdgroup <- exercise.2$IDENTIFIER
+holdid <- exercise.2$ID_REF
+
+exercise.2 <- as.matrix(exercise.2[,-c(1,2)])
+
+exercise.3 <- collapseRows(exercise.2, rowGroup = holdgroup, rowID = holdid)
+
+exercise.4 <- exercise.3$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+
+exercise.meta <- exercise@dataTable@columns
+```
+
+```{r}
+write.table(exercise.4, "../data/ncbi_processed/iso_exercise.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+saveRDS(exercise.meta, "../data/ncbi_processed/meta_exercise.RDS")
+```
+
+# Endotoxin
+
+```{r format endotoxin samples for ref genes}
+endotox.2 <- endotox.1 %>%
+  dplyr::select(ID_REF, IDENTIFIER, contains("GSM")) %>%
+  filter(IDENTIFIER != "")
+
+rownames(endotox.2) <- endotox.2$ID_REF
+
+endotox.3 <- collapseRows(endotox.2[, -c(1,2)], rowGroup = endotox.2$IDENTIFIER, rowID = endotox.2$ID_REF)
+
+endotox.4 <- endotox.3$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+
+endotox.meta <- Columns(dataTable(endotox))
+```
+
+```{r}
+write.table(endotox.4, "../data/ncbi_processed/iso_endotox.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+saveRDS(endotox.meta, "../data/ncbi_processed/meta_endotox.RDS")
+```
+
+# Synovial fluid neutrophils
+
+```{r}
+names(syno) <- gsub("(GSM\\d+)_.*", "\\1", syno.files)
+syno.agg <- lapply(names(syno), function(x) syno[[x]] %>% dplyr::select(EnsemblID, ReadCount) %>% mutate(sample = x)) %>%
+  bind_rows() %>%
+  spread(key = 'sample', value = 'ReadCount')
+
+ensid <- syno.agg$EnsemblID
+Gene <- mapIds(org.Hs.eg.db, keys = ensid, keytype = "ENSEMBL", column = "SYMBOL")
+syno.agg <- syno.agg %>%
+  mutate(Gene = Gene) %>%
+  column_to_rownames(var = 'EnsemblID') %>%
+  dplyr::select(Gene, everything())
+
+syno.col <- collapseRows(syno.agg[,-1], rowID = ensid, rowGroup = Gene)
+
+syno.form <- syno.col$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+```

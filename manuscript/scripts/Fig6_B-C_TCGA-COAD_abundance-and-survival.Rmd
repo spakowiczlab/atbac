@@ -1,0 +1,458 @@
+---
+title: "Figure 6B, C: TCGA analysis of COAD VAT neutrophil abundance and their correlation with overall survival"
+author: "Dan Spakowicz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(tibble)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(survminer)
+library(survival)
+library(broom)
+```
+
+
+```{r}
+#load files to match id
+TCGA_id_link <- read_csv("../data/TCGA-link-bam-and-expression-files.csv")
+TCGA.COAD_id <- read.delim("../data/gdc_manifest.2020-05-28.txt")
+TCGA.READ_id <- read.delim("../data/gdc_manifest.2020-05-28 _READ.txt")
+## add cancer type to the data frame
+TCGA.COAD_id <- data.frame(TCGA.COAD_id$id, rep("COAD", length(TCGA.COAD_id$id)))
+TCGA.READ_id <- data.frame(TCGA.READ_id$id, rep("READ", length(TCGA.READ_id$id)))
+colnames(TCGA.COAD_id) <- c("file_id.BAM", "Tissue")
+colnames(TCGA.READ_id) <- c("file_id.BAM", "Tissue")
+TCGA_tissue_id <- rbind(TCGA.COAD_id, TCGA.READ_id)
+# load cibersortx file
+TCGA_CUS <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/COAD-READ_cus.csv", header = TRUE)
+TCGA_LM <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/COAD-READ_lm.csv", header = TRUE)
+BRCA_C <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/BRCA_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "SARC")
+SARC_C <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/SARC_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "SARC")
+LUSC_C <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/LUSC_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "LUSC")
+LUAD_C <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/LUAD_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "LUAD")
+BRCA_L <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/BRCA_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "SARC")
+SARC_L <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/SARC_LM22.csv", header = TRUE)%>%
+  mutate(Cancer = "SARC")
+LUSC_L <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/LUSC_LM22.csv", header = TRUE)%>%
+  mutate(Cancer = "LUSC")
+LUAD_L <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/LUAD_LM22.csv", header = TRUE)%>%
+  mutate(Cancer = "LUAD")
+KIRC_C <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/KIRC_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "KIRC")
+KIRC_L <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/KIRC_LM22.csv", header = TRUE)%>%
+  mutate(Cancer = "KIRC")
+
+##combine tissue and deconvolved CUS
+TCGA_tissue_id <- left_join(TCGA_id_link, TCGA_tissue_id)
+colnames(TCGA_tissue_id) <- c("file_id.BAM","Mixture","Cancer")
+TCGA_CUS <- left_join(TCGA_CUS, TCGA_tissue_id)
+TCGA_CUS <- TCGA_CUS %>% select(Cancer, everything())
+
+##combine tissue and deconvolved LM
+TCGA_LM <- left_join(TCGA_LM, TCGA_tissue_id)
+TCGA_LM <- TCGA_LM %>% select(Cancer, everything())
+TCGA_CUS <- bind_rows(TCGA_CUS,SARC_C,LUAD_C,LUSC_C,KIRC_C,BRCA_C)
+TCGA_LM <- bind_rows(TCGA_LM,SARC_L,LUAD_L,LUSC_L,KIRC_L, BRCA_L)
+
+##combine vat and neut
+TCGA_dat <- TCGA_CUS %>%
+  dplyr::select(Mixture, Cancer, V.neutrophil, Blood.neutrophil)
+TCGA_dat <- TCGA_LM %>%
+  dplyr::select(Mixture, Cancer, Neutrophils) %>%
+  left_join(TCGA_dat)%>%
+  rename("VAT_Neut" = "V.neutrophil", "Blood_Neut" = "Neutrophils", "C.B" = "Blood.neutrophil", "Tissue" = "Cancer")
+TCGA_dat <- TCGA_dat %>%
+  mutate(file_name.expression = paste0(Mixture,".FPKM.txt.gz"))
+dat_plot <- TCGA_dat %>% 
+  gather("cell_type", "relative_abundance", 3:5) %>%
+  mutate(Tissue2nd = paste0(Tissue, cell_type))
+```
+
+#order by VAT sum
+```{r}
+tiskey <- unique(select(TCGA_dat, Tissue))
+tiskey$sum_VAT <- sapply (1:nrow(tiskey), function(i) sum(TCGA_dat$VAT_Neut[which(tiskey$Tissue[i] == TCGA_dat$Tissue)]))
+tiskey$sum_blood <- sapply (1:nrow(tiskey), function(i) sum(TCGA_dat$Blood_Neut[which(tiskey$Tissue[i] == TCGA_dat$Tissue)]))
+tiskey$type <- tiskey$sum_VAT > tiskey$sum_blood
+colnames(tiskey) <- c("Tissue", "sum_VAT","sum_blood","type")
+```
+
+
+#seperate dat for p value
+```{r}
+# dat_VC <- TCGA_dat %>% 
+#   gather("cell_type", "relative_abundance", 3,5)
+# dat_BC <- TCGA_dat %>% 
+#   gather("cell_type", "relative_abundance", 4:5)
+```
+
+
+##find p value
+```{r}
+# #t test and find the tissue order for p value 
+# xxxx_VC <- lapply(1:length(lev), function(i) dat_VC[which(dat_VC$Tissue == lev[i]),])
+# test_VC <- lapply(1:length(lev), function(i) kruskal.test(relative_abundance ~ cell_type,data = xxxx_VC[[i]]))
+# pv_VC <- sapply(1:length(lev), function(i) test_VC[[i]][3])
+# pv_VC <- do.call(rbind.data.frame, pv_VC)
+# pv_VC$Tissue <- lev
+# colnames(pv_VC) <- c("pv_VC","Tissue")
+# #levels(pv_VC$protocol) <- levels(dat_plot$protocol)
+# 
+# xxxx_BC <- lapply(1:length(lev), function(i) dat_BC[which(dat_BC$Tissue == lev[i]),])
+# test_BC <- lapply(1:length(lev), function(i) kruskal.test(relative_abundance ~ cell_type,data = xxxx_BC[[i]]))
+# pv_BC <- sapply(1:length(lev), function(i) test_BC[[i]][3])
+# pv_BC <- do.call(rbind.data.frame, pv_BC)
+# pv_BC$tissue <- lev
+# colnames(pv_BC) <- c("pv_BC","Tissue")
+# #levels(pv_BC$protocol) <- levels(dat_plot$protocol)
+```
+
+
+##assign y reference value to each sample for background fill
+```{r}
+#reorder the level of dat_plot$Tissue to change the y axis (change based on which order y axis should be)
+#levels(dat_plot$Tissue2nd) <- c(unique(pv$Tissue2nd))
+#dat_plot$Tissue2nd <- factor(dat_plot$Tissue2nd, levels = pvv$Tissue2nd)
+#dat_plot$protocol <- factor(dat_plot$protocol, levels = pv$protocol)
+
+dat_plot <- dat_plot %>%
+  mutate(patnum = as.numeric(as.factor(Tissue))*3-1)
+numpatkey <- select(dat_plot,Tissue, patnum)
+numpatkey <- numpatkey[!duplicated(numpatkey),]
+numpatkey <- left_join(numpatkey, tiskey)
+numpatkey$type[which(numpatkey$type == "TRUE")] <- "more VAT"
+numpatkey$type[which(numpatkey$type == "FALSE")] <- "more blood neut"
+
+numpatkey <- numpatkey %>%
+  mutate(ylow = patnum - 1.4,
+         yhigh = patnum + 1.4,
+         xmin = 0,
+         xmax = 0.75
+  ) %>%
+  gather(xmin, xmax, key = "end", value = "x")
+#numpatkey$Tissue <- factor(numpatkey$protocol, levels = pv$protocol)
+#numpatkey <- numpatkey[order(numpatkey$yhigh),]
+```
+
+
+
+##prepare annotation for p value
+```{r}
+# annotation_BC <- data.frame(start = levels(dat_plot$Tissue2nd)[seq(1, length(levels(dat_plot$Tissue2nd))-2, by=3)],
+#                          end = levels(dat_plot$Tissue2nd)[seq(2, length(levels(dat_plot$Tissue2nd))-1, by=3)],
+#                          y = rep(1.05, length(levels(dat_plot$Tissue2nd))/3),
+#                          Tissue = lev)
+# annotation_BC <- annotation_BC %>%
+#   left_join(pv_BC) %>%
+#   mutate(pv = ifelse(pv_BC > 0.05, "NS",
+#                      ifelse(0.05 > pv_BC & pv_BC >0.01,"*",
+#                             ifelse(0.01 > pv_BC, "**",pv_BC))))
+# 
+# 
+# annotation_VC <- data.frame(start = levels(dat_plot$Tissue2nd)[seq(2, length(levels(dat_plot$Tissue2nd))-1, by=3)],
+#                          end = levels(dat_plot$Tissue2nd)[seq(3, length(levels(dat_plot$Tissue2nd)), by=3)],
+#                          y = rep(1, length(levels(dat_plot$Tissue2nd))/3),
+#                          Tissue = lev)
+# annotation_VC <- annotation_VC %>%
+#   left_join(pv_VC) %>%
+#   mutate(pv = ifelse(pv_VC > 0.05, "NS",
+#                      ifelse(0.05 > pv_VC & pv_VC > 0.01,"*",
+#                             ifelse(0.01 > pv_VC, "**",pv_VC))))
+# #annotation_VC$pv <- signif(annotation_VC$pv, digits=2)
+# #annotation_BC$pv <- signif(annotation_BC$pv, digits=2)
+# 
+# 
+# ls_VC <- lapply(1:nrow(annotation_VC), function(i)
+# c(as.character(annotation_VC$start[i]),as.character(annotation_VC$end[i])))
+# ls_BC <- lapply(1:nrow(annotation_BC), function(i)
+# c(as.character(annotation_BC$start[i]),as.character(annotation_BC$end[i])))
+```
+
+```{r}
+##annotation pv
+ggplot()+
+  geom_point(data = dat_plot, aes(y = relative_abundance, x = Tissue2nd, colour = cell_type))+
+  theme(axis.text.y = element_text(size=10, angle=0))+
+  geom_rect(data = numpatkey, aes(xmin = ylow, xmax = yhigh, ymin = -Inf, ymax = Inf, fill = type), alpha = 0.2)+
+  scale_fill_manual(values=c("red","pink","yellow", "gold"))+
+  geom_boxplot(data = dat_plot, aes(y = relative_abundance, x = Tissue2nd, fill = cell_type), outlier.alpha = 0)+
+  geom_point(data = dat_plot, aes(y = relative_abundance, x = Tissue2nd, colour = cell_type), size = 0.1)+
+  scale_colour_manual(values = c("red2","pink2","yellow2"))+
+  # ylim(0,0.45)+
+  scale_x_discrete(labels=c("","COAD","","","KIRC","","","LUAD","","","LUSC",
+                            "","","READ","","","SARC",""))+
+  coord_flip()+
+  # geom_signif(data=annotation_BC,
+  #             aes(xmin=start, xmax=end, annotations=pv, y_position=y),
+  #             textsize = 2, tip_length = 0.01,vjust = -0.1, map_signif_level = TRUE, manual=TRUE)+
+  # geom_signif(data=annotation_VC,
+  #             aes(xmin=start, xmax=end, annotations=pv, y_position=y),
+  #             textsize = 2, tip_length = 0.01, vjust = -0.1, map_signif_level = TRUE, manual=TRUE)+
+  # ggpubr::rotate_x_text()+
+  ggsave("../figures/TCGA_neut.png")
+```
+
+
+
+
+```{r}
+
+##combine clinical data
+BRCA_CLI <- read.csv("../data/survival info/BRCA_CLI.csv", header = TRUE)
+LUAD_CLI <- read.csv("../data/survival info/LUAD_CLI.csv", header = TRUE)
+LUSC_CLI <- read.csv("../data/survival info/LUSC_CLI.csv", header = TRUE)
+SARC_CLI <- read.csv("../data/survival info/SARC_CLI.csv", header = TRUE)
+COAD_CLI <- read.csv("../data/survival info/COAD_CLI.csv", header = TRUE)
+READ_CLI <- read.csv("../data/survival info/READ_CLI.csv", header = TRUE)
+KIRC_CLI <- read.csv("../data/survival info/KIRC_CLI.csv", header = TRUE)
+ALL_CLI <- bind_rows(LUAD_CLI,LUSC_CLI,READ_CLI,COAD_CLI,KIRC_CLI,SARC_CLI,BRCA_CLI)%>%
+  select(file_id.BAM, days_to_last_follow_up,days_to_death,vital_status)%>%
+  mutate(vital_status = ifelse(vital_status=="Alive",0,1),
+         days = ifelse(is.na(days_to_death),days_to_last_follow_up,days_to_death))
+
+## combine manifest files
+BRCA_MAN <- read.csv("../data/survival info/BRCA_MAN.csv", header = TRUE)
+LUAD_MAN <- read.csv("../data/survival info/LUAD_MAN.csv", header = TRUE)
+LUSC_MAN <- read.csv("../data/survival info/LUSC_MAN.csv", header = TRUE)
+SARC_MAN <- read.csv("../data/survival info/SARC_MAN.csv", header = TRUE)
+COAD_MAN <- read.csv("../data/survival info/COAD_MAN.csv", header = TRUE)
+READ_MAN <- read.csv("../data/survival info/READ_MAN.csv", header = TRUE)
+KIRC_MAN <- read.csv("../data/survival info/KIRC_MAN.csv", header = TRUE)
+ALL_MAN <- bind_rows(LUAD_MAN,LUSC_MAN,COAD_MAN,KIRC_MAN,SARC_MAN,READ_MAN,BRCA_MAN) %>%
+  select(file_name.expression,file_id.BAM,file_id.expression)%>%
+  rename("Mixture" = "file_id.expression")
+
+##prepare survival data
+SURV_CR <- TCGA_dat %>%
+  filter(Tissue %in% c("COAD","READ"))%>%
+  left_join(ALL_MAN, by = "file_name.expression")%>%
+  left_join(ALL_CLI)%>%
+  select(file_id.BAM,days,vital_status,Tissue,VAT_Neut)
+SURV_REST <- TCGA_dat %>%
+  filter(!Tissue %in% c("COAD","READ"))%>%
+  left_join(ALL_MAN, by = "Mixture")%>%
+  left_join(ALL_CLI)%>%
+  select(file_id.BAM,days,vital_status,Tissue,VAT_Neut)
+SURV_dat <- bind_rows(SURV_CR,SURV_REST)
+
+## plot using facet wrap
+SURV_d <- SURV_dat %>%
+  mutate(VAT_type = ifelse(VAT_Neut > sort(VAT_Neut)[0.9*length(VAT_Neut)],"More VAT","less VAT"))
+
+surv_plot <- survfit(Surv(days, vital_status) ~ VAT_type, data = SURV_d)
+ggsurvplot_facet(surv_plot, SURV_d, facet.by = "Tissue", scales = "free_x") +
+  theme_bw()+
+  ggsave("../figures/TCGA_surv.png")
+  
+# 
+# 
+# SURV_COAD <- SURV_dat%>%
+#   filter(Tissue == "COAD")%>%
+#   mutate(VAT_type = ifelse(VAT_Neut > sort(VAT_Neut)[0.9*length(VAT_Neut)],"More VAT","less VAT"))
+# SURV_READ <- SURV_dat%>%
+#   filter(Tissue == "READ")%>%
+#   mutate(VAT_type = ifelse(VAT_Neut > sort(VAT_Neut)[0.9*length(VAT_Neut)],"More VAT","less VAT"))
+# SURV_KIRC <- SURV_dat%>%
+#   filter(Tissue == "KIRC")%>%
+#   mutate(VAT_type = ifelse(VAT_Neut > sort(VAT_Neut)[0.9*length(VAT_Neut)],"More VAT","less VAT"))
+# SURV_LUAD <- SURV_dat%>%
+#   filter(Tissue == "LUAD")%>%
+#   mutate(VAT_type = ifelse(VAT_Neut > sort(VAT_Neut)[0.9*length(VAT_Neut)],"More VAT","less VAT"))
+# SURV_LUSC <- SURV_dat%>%
+#   filter(Tissue == "LUSC")%>%
+#   mutate(VAT_type = ifelse(VAT_Neut > sort(VAT_Neut)[0.9*length(VAT_Neut)],"More VAT","less VAT"))
+# SURV_SARC <- SURV_dat%>%
+#   filter(Tissue == "SARC")%>%
+#   mutate(VAT_type = ifelse(VAT_Neut > sort(VAT_Neut)[0.9*length(VAT_Neut)],"More VAT","less VAT"))
+# SP_COAD <- survfit(Surv(days, vital_status) ~ VAT_type, data = SURV_COAD)
+# SP_READ <- survfit(Surv(days, vital_status) ~ VAT_type, data = SURV_READ)
+# SP_LUAD <- survfit(Surv(days, vital_status) ~ VAT_type, data = SURV_LUAD)
+# SP_LUSC <- survfit(Surv(days, vital_status) ~ VAT_type, data = SURV_LUSC)
+# SP_SARC <- survfit(Surv(days, vital_status) ~ VAT_type, data = SURV_SARC)
+# SP_KIRC <- survfit(Surv(days, vital_status) ~ VAT_type, data = SURV_KIRC)
+# 
+# gg <- list()
+# gg[[1]] <- ggsurvplot(SP_COAD,
+#           # pval = TRUE, conf.int = TRUE,
+#           # risk.table = TRUE, # Add risk table
+#           # risk.table.col = "strata", # Change risk table color by groups
+#           # linetype = "strata", # Change line type by groups
+#           # surv.median.line = "hv", # Specify median survival
+#           # ggtheme = theme_bw(), # Change ggplot2 theme
+#           # palette = c("#E7B800", "#2E9FDF"),
+#           title = "COAD")
+# gg[[2]] <- ggsurvplot(SP_READ,
+#           # pval = TRUE, conf.int = TRUE,
+#           # risk.table = TRUE, # Add risk table
+#           # risk.table.col = "strata", # Change risk table color by groups
+#           # linetype = "strata", # Change line type by groups
+#           # surv.median.line = "hv", # Specify median survival
+#           # ggtheme = theme_bw(), # Change ggplot2 theme
+#           # palette = c("#E7B800", "#2E9FDF"),
+#           title = "READ")
+# gg[[3]] <- ggsurvplot(SP_LUAD,
+#           # pval = TRUE, conf.int = TRUE,
+#           # risk.table = TRUE, # Add risk table
+#           # risk.table.col = "strata", # Change risk table color by groups
+#           # linetype = "strata", # Change line type by groups
+#           # surv.median.line = "hv", # Specify median survival
+#           # ggtheme = theme_bw(), # Change ggplot2 theme
+#           # palette = c("#E7B800", "#2E9FDF"),
+#           title = "LUAD")
+# gg[[4]] <- ggsurvplot(SP_LUSC,
+#           # pval = TRUE, conf.int = TRUE,
+#           # risk.table = TRUE, # Add risk table
+#           # risk.table.col = "strata", # Change risk table color by groups
+#           # linetype = "strata", # Change line type by groups
+#           # surv.median.line = "hv", # Specify median survival
+#           # ggtheme = theme_bw(), # Change ggplot2 theme
+#           # palette = c("#E7B800", "#2E9FDF"),
+#           title = "LUSC")
+# gg[[5]] <- ggsurvplot(SP_SARC,
+#           # pval = TRUE, conf.int = TRUE,
+#           # risk.table = TRUE, # Add risk table
+#           # risk.table.col = "strata", # Change risk table color by groups
+#           # linetype = "strata", # Change line type by groups
+#           # surv.median.line = "hv", # Specify median survival
+#           # ggtheme = theme_bw(), # Change ggplot2 theme
+#           # palette = c("#E7B800", "#2E9FDF"),
+#           title = "SARC")
+# gg[[6]] <- ggsurvplot(SP_KIRC,
+#           # pval = TRUE, conf.int = TRUE,
+#           # risk.table = TRUE, # Add risk table
+#           # risk.table.col = "strata", # Change risk table color by groups
+#           # linetype = "strata", # Change line type by groups
+#           # surv.median.line = "hv", # Specify median survival
+#           # ggtheme = theme_bw(), # Change ggplot2 theme
+#           # palette = c("#E7B800", "#2E9FDF"),
+#           title = "KIRC")
+# figure <- arrange_ggsurvplots(gg, print = TRUE,ncol = 3, nrow = 2)
+# ggsave("C:/Users/liu195/Desktop/atbac_extra/TCGA_surv.png", height = 10, width = 15, figure)
+```
+
+```{r}
+cancers <- unique(SURV_dat$Tissue)
+percentiles<- seq(0.01,0.99,0.01)
+## creating a dataframe for saving the p values ##
+ptable <- list()
+percents.list <- list()
+canc.list <- list()
+for(e in cancers){
+  ##create subset for each cancer 
+  canc_set <- SURV_dat[SURV_dat$Tissue== e,]
+  for (p in percentiles) {  ## loop through every percentile
+    #find the threshold based on the percentile
+    cut <- quantile(canc_set$VAT_Neut, p)
+    canc_set$type <- ifelse(canc_set$VAT_Neut > cut, 1, 0)
+    survtemp <- coxph(Surv(days, vital_status) ~ type, canc_set)
+    ##put wanted value in dataframe format
+    dat_temp <- merge(data.frame(summary(survtemp)[["conf.int"]]), data.frame(summary(survtemp)[["coefficients"]]))
+    ## extract value from dataframe
+    ptable[[e]] <- dat_temp %>%
+      mutate(hazard.ratio = exp..coef.,
+        low.bound = lower..95,
+        upper.bound = upper..95,
+        pval = log(Pr...z..),
+        percentiles = p,
+        cancer = e) %>%
+      select(hazard.ratio, low.bound, upper.bound, percentiles, pval, cancer)
+    percents.list[[as.character(p)]] <- ptable
+    ptable <- list()
+  }
+  canc.list[[e]] <- bind_rows(lapply(percents.list, function(x) bind_rows(x)))
+  percents.list <- list()
+}
+## decide whether the line goes up or down
+canc.df <- bind_rows(canc.list) %>%
+  mutate(dir = ifelse(hazard.ratio >= 1, "neg", "pos"))
+
+ggplot(canc.df, aes(x=percentiles, y=pval))+
+  geom_line(aes(color = dir, group=1))+
+  geom_hline(yintercept = log(0.05))+
+  ylab("log(pval)")+
+  facet_wrap(~cancer, scales = "free_y")+
+  theme_bw()+
+  ggsave("../figures/hoyd_TCGA.png", height = 10, width = 15)
+  
+# #### log( pval)
+# hoyd_COAD <- canc.list[["COAD"]]%>%
+#     mutate(dir = ifelse(hazard.ratio >= 1, "neg", "pos"))
+# hoyd_READ <- canc.list[["READ"]]%>%
+#     mutate(dir = ifelse(hazard.ratio >= 1, "neg", "pos"))
+# hoyd_SARC <- canc.list[["SARC"]]%>%
+#     mutate(dir = ifelse(hazard.ratio >= 1, "neg", "pos"))
+# hoyd_LUAD <- canc.list[["LUAD"]]%>%
+#     mutate(dir = ifelse(hazard.ratio >= 1, "neg", "pos"))
+# hoyd_LUSC <- canc.list[["LUSC"]]%>%
+#     mutate(dir = ifelse(hazard.ratio >= 1, "neg", "pos"))
+# hoyd_KIRC <- canc.list[["KIRC"]]%>%
+#     mutate(dir = ifelse(hazard.ratio >= 1, "neg", "pos"))
+# H_COAD <- ggplot(hoyd_COAD, aes(x=percentiles, y=pval))+
+#   geom_line(aes(color = dir, group=1))+
+#   geom_hline(yintercept = log(0.05))+
+#   ggtitle("COAD")+
+#   ylab("log(pval)")
+# 
+# H_READ <- ggplot(hoyd_READ, aes(x=percentiles, y=pval))+
+#   geom_line(aes(color = dir, group=1))+
+#   geom_hline(yintercept = log(0.05))+
+#   ggtitle("READ")+
+#   ylab("log(pval)")
+# 
+# H_SARC <- ggplot(hoyd_SARC, aes(x=percentiles, y=pval))+
+#   geom_line(aes(color = dir, group=1))+
+#   geom_hline(yintercept = log(0.05))+
+#   ggtitle("SARC")+
+#   ylab("log(pval)")
+# 
+# H_LUAD <- ggplot(hoyd_LUAD, aes(x=percentiles, y=pval))+
+#   geom_line(aes(color = dir, group=1))+
+#   geom_hline(yintercept = log(0.05))+
+#   ggtitle("LUAD")+
+#   ylab("log(pval)")
+# 
+# H_LUSC <- ggplot(hoyd_LUSC, aes(x=percentiles, y=pval))+
+#   geom_line(aes(color = dir, group=1))+
+#   geom_hline(yintercept = log(0.05))+
+#   ggtitle("LUSC")+
+#   ylab("log(pval)")
+# 
+# H_KIRC <- ggplot(hoyd_KIRC, aes(x=percentiles, y=pval))+
+#   geom_line(aes(color = dir, group=1))+
+#   geom_hline(yintercept = log(0.05))+
+#   ggtitle("KIRC")+
+#   ylab("log(pval)")
+
+
+# ggarrange(H_LUSC,H_LUAD,H_SARC,H_READ,H_COAD,H_KIRC,
+#           ncol = 3, nrow = 2)+
+#   ggsave("C:/Users/liu195/Desktop/hoyd_TCGA.png", height = 10, width = 15)
+
+##black & white background
+##only one legend for all (facet wrap)
+##adding BRCA
+
+```
+
+## Reproducibility
+
+<details><summary>Reproducibility receipt</summary>
+
+```{r}
+# Date and time
+Sys.time()
+
+# Repositories
+git2r::repository()
+```
+

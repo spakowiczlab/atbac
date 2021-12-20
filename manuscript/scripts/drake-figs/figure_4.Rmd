@@ -1,0 +1,211 @@
+---
+title: "Figure 2"
+author: "Rebecca Hoyd"
+date: "3/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(UpSetR)
+library(ggplot2)
+library(ggrepel)
+library(RColorBrewer)
+library(viridis)
+
+library(groundhog)
+# groundhog.library("UpSetR", "2018-07-27")
+```
+
+# Drake targets
+
+```{r}
+loadd(treatment.genepools)
+loadd(correlate.neut.sigs)
+loadd(nmds.neuts.counts)
+loadd(des.res)
+```
+
+# Panel A: UpSetR
+
+```{r}
+upset(treatment.genepools, matrix.color = "bisque4", main.bar.color = "bisque4", 
+      mainbar.y.label = "Number of Genes", keep.order = TRUE, nsets = 8,empty.intersections = T,
+      nintersects = 36,
+      number.angles = 45, show.numbers = F)
+```
+
+## Replicate upsettr with added correlation information
+
+```{r extensive formatting for component plots}
+# Count number of shared significant genes
+intersect.num <- treatment.genepools %>%
+  rownames_to_column(var = "gennumid") %>%
+  gather(-gennumid, key = "neutgroup", value = "sig") %>%
+  group_by(gennumid) %>%
+  mutate(numsig = sum(sig),
+         neutgroup = gsub("Cancer", "\\.Cancer", neutgroup),
+         neutgroup = gsub(" TB", "\\.TB", neutgroup)) %>%
+  filter(numsig %in% 1:2 & sig == 1) %>%
+  group_by(gennumid) %>%
+  summarise(grouppair = paste(sort(neutgroup), collapse = "_")) %>%
+  # ungroup() %>%
+  add_count(grouppair) %>%
+  arrange(desc(n))
+
+
+# Get order of bars for upsettr
+noempty.bardat <- unique(intersect.num[, c("grouppair", "n")]) %>%
+  mutate(isinter = ifelse(grepl("_", grouppair), 1, 0)) %>%
+  arrange(isinter, desc(n))
+
+intersect.ord <- unique(noempty.bardat$grouppair)
+empty.set.ord <- c(
+  # "Endotoxin_Lung.Cancer",
+                   "Active.TB_Endotoxin", "Endotoxin_Exercise", "Exercise_Sepsis", "Exercise_Synovial")
+
+empty.bardat <- as.data.frame(cbind(grouppair = empty.set.ord, n = 0, isinter = 1),
+                              stringsAsFactors = F) %>%
+  mutate(n = as.numeric(n),
+         isinter = as.numeric(isinter))
+
+intersect.bardat <- bind_rows(noempty.bardat, empty.bardat) %>%
+  mutate(x = row_number())
+
+bar.ord <- intersect.bardat$grouppair
+
+
+# Get order of neutrophil types for matrix plot
+neutord <- colnames(treatment.genepools)
+# neutord <- gsub("LungC", "Lung\\.C", neutord)
+neutord <- gsub("Active ", "Active.", neutord)
+
+# Associated matrix dots with correlation data
+corr.with.col <- correlate.neut.sigs %>%
+  filter(!grepl("Lung", neutrgroup1) & !grepl("Lung", neutgroup2)) %>%
+  mutate(neutpair = ifelse(neutgroup2 != neutrgroup1,
+                           paste(neutrgroup1, neutgroup2, sep = "_"),
+                           neutrgroup1)) %>%
+  select(neutrgroup1, neutgroup2, neutpair, estimate) %>%
+  gather(-neutpair, -estimate, key = "groupord", value = "neutlab") %>%
+  mutate(neutlab = fct_relevel(neutlab, neutord),
+         neutpair = fct_relevel(neutpair, bar.ord),
+         neutnum = as.numeric(neutlab)) %>%
+  group_by(neutpair) %>%
+  mutate(lownuet = min(neutnum),
+         highneut =  max(neutnum)) %>%
+  ungroup()
+
+
+# Getting x and y values for the background matrix plot ribbons
+neutnumkey <- corr.with.col %>%
+  select(neutlab, neutnum) 
+  # mutate(neutnum = as.numeric(neutlab))
+neutnumkey <- neutnumkey[!duplicated(neutnumkey),]
+
+neutnumkey <- neutnumkey %>%
+  # filter(neutnum%%2 == 1) %>%
+  mutate(ylow = neutnum - .5,
+         yhigh = neutnum + .5,
+         xmin = 0,
+         xmax = 28.5
+         ) %>%
+  gather(xmin, xmax, key = "end", value = "x") %>%
+  mutate(evodd = ifelse(neutnum %%2 ==1, "ev","odd"))
+```
+
+
+
+```{r upsettr bar plot}
+intersect.bardat %>%
+  ggplot(aes(x=x,y=n)) +
+  geom_col() +
+  labs(x = "", y = "") +
+  theme_classic() +
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank()
+        ) +
+  ggsave("../../figures/upsetr_set-size.pdf")
+```
+
+```{r upsettr matrix plot}
+corr.with.col %>%
+  # mutate(neutlab = fct_relevel(neutlab, neutord)) %>%
+  ggplot(aes(x = neutpair, y = neutnum, color = estimate)) +
+  scale_x_discrete() +
+  scale_y_discrete(breaks = as.character(c(1,2,3,4,5,6,7)), labels = neutord) + # if include LC, 8 breaks
+  geom_ribbon(data = neutnumkey, inherit.aes = F,
+              aes(ymin = ylow, ymax = yhigh, fill = evodd, alpha = 0.5, x = x, group = neutlab),
+              show.legend = F) +
+  scale_fill_manual(breaks = c("ev","odd"), values = c("grey70", "grey60")) +
+  geom_point(size = 5) +
+  geom_pointrange(aes(ymin = lownuet, ymax = highneut)) +
+  # scale_color_distiller(guide = "legend", breaks = seq(-1,1,.2), 
+  #                      limits = c(-1, 1), values = seq(0,1,.1),
+  #                      type = "div", palette = "Spectral", direction = 1,
+  #                      name = "Correlation") +
+  scale_color_viridis(direction = -1, name = "Correlation", guide = "legend") +
+  labs(x = "", y = "") +
+  theme_bw() +
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(),
+        panel.grid = element_blank()
+        ) 
+ggsave("../../figures/upsetr_set-labels.pdf", width = 10)
+```
+
+
+# NMDS
+
+```{r}
+
+nmds.neuts.genes <- nmds.neuts.counts %>%
+  filter(pointtype == "gene")
+nmds.neuts.samples <- nmds.neuts.counts %>%
+  filter(pointtype == "sample")
+
+nmds.neuts.samples %>%
+  ggplot(aes(x = MDS1, y = MDS2, color = neutgroup, fill= neutgroup,
+             # label = pointlab, 
+             alpha = pointtype)) +
+  geom_point(data = nmds.neuts.counts, show.legend = F) +
+  stat_ellipse(geom = "polygon", alpha = .3) +
+  geom_point() +
+  # geom_text_repel(show.legend = F) +
+  scale_color_viridis(discrete = TRUE,option = "turbo", na.value = "grey66",
+                      name = "Neutrophil",
+                      breaks = c("airspace", "bldvat", "endotox", "exercise", "sepsis", "syno", "tb"),
+                      labels = c("Airspace", "VAT", "Endotoxin", "Exercise", "Sepsis", 
+                                 "Synovial", "Active TB")) +
+  scale_fill_viridis(discrete = TRUE,option = "turbo", na.value = "grey66",
+                      name = "Neutrophil",
+                      breaks = c("airspace", "bldvat", "endotox", "exercise", "sepsis", "syno", "tb"),
+                      labels = c("Airspace", "VAT", "Endotoxin", "Exercise", "Sepsis", 
+                                 "Synovial", "Active TB")) +
+  scale_alpha_manual(breaks = c("gene", "sample"), values = c(0.2, 1), guide = FALSE)+
+  theme_bw() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank()) +
+  ggsave("../../figures/nmds_neutrophil-state_counts.pdf",
+         height = 5, width = 5)
+```
+
+# Related table : check genes in DESeq2 results
+
+```{r}
+intgenes <- c("G0S2", "IL8", "NAMPT", "PPP151A", "SOD2", "TREM1", "PLAUR", "PTGS2")
+
+check.genes <- lapply(names(des.res), function(x) des.res[[x]] %>% 
+                        mutate(Gene = as.character(Gene)) %>%
+                        filter(Gene %in% intgenes) %>%
+                        mutate(sig = padj < 0.05,
+                               enriched.in = ifelse(log2FoldChange > 0, "treatment",
+                                                    "control"),
+                               neutgroup = x) %>%
+                        select(neutgroup, Gene, sig, enriched.in))
+
+bind_rows(check.genes) %>%
+  write.csv("../../tables/genes-across-activations.csv", row.names = F)
+```

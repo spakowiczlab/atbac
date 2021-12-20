@@ -1,0 +1,154 @@
+---
+title: "Blood and VAT Processing Script"
+author: "Linda Antwi"
+date: "October 25,2019"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(readxl)
+library(Biobase)
+library(GEOquery)
+library(hgu133plus2.db)
+library(annotate)
+# library(WGCNA)
+source("../../CIBERSORT/scripts/WCGNA/collapseRows.R")
+```
+
+
+
+
+#Blood mixtures
+Gene expression profiles in whole blood collected from pregnant and non-pregnant women.
+```{r loading sample 1}
+#To access GEO Samples
+blood1 <- getGEO(filename = "../data/ncbi_raw-files/Blood_GSE14771-GPL96_series_matrix.txt.gz")
+
+```
+
+```{r formating sample 1}
+bld.1 <- exprs(blood1) %>%
+  as.data.frame()
+
+bld1f <- blood1@featureData@data  %>%
+  dplyr::select(ID, `Gene Symbol`) 
+
+bld1.col <- collapseRows(bld.1, rowGroup = bld1f$`Gene Symbol`, rowID = bld1f$ID)
+
+bld1.form <- bld1.col$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+
+bld1.meta <- blood1@phenoData@data
+```
+
+```{r processed sample 1}
+write.table(bld1.form, "../data/ncbi_processed/Blood_GSE14771-GPL96.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+saveRDS(bld1.meta, "../data/ncbi_processed/meta_Blood_GSE14771-GPL96.RDS")
+```
+
+
+
+
+Gene Expression Profiling of Human Whole Blood Samples with the Illumina WG-DASL Assay
+```{r loading sample 2}
+#To access GEO Samples
+blood2 <- getGEO(filename = "../data/ncbi_raw-files/Blood_GSE28064-GPL8432_series_matrix.txt.gz")
+
+```
+
+```{r formating sample 2}
+bld.2 <- exprs(blood2) %>%
+  as.data.frame()
+
+bld2f <- blood2@featureData@data  %>%
+  dplyr::select(ID, `Symbol`) 
+
+bld2.col <- collapseRows(bld.2, rowGroup = bld2f$`Symbol`, rowID = bld2f$ID)
+
+bld2.form <- bld2.col$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+
+bld2.meta <- blood2@phenoData@data
+```
+
+
+```{r processed sample 2}
+write.table(bld2.form, "../data/ncbi_processed/Blood_GSE28064-GPL8432.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+saveRDS(bld2.meta, "../data/ncbi_processed/meta_Blood_GSE28064-GPL8432.RDS")
+```
+
+
+
+
+Gene Expression Profiling of Whole Blood: A Comparative Assessment of RNA-Stabilizing Collection Methods
+```{r loading sample 3}
+#To access GEO Samples
+blood3 <- getGEO(filename = "../data/ncbi_raw-files/GSE103889_series_matrix.txt.gz")
+
+```
+
+```{r formating sample 3}
+bld.3 <- exprs(blood3) %>%
+  as.data.frame()
+
+bld3f <- blood3@featureData@data  %>%
+  dplyr::select(ID, `GENE_SYMBOL`) 
+
+bld3.col <- collapseRows(bld.3, rowGroup = bld3f$`GENE_SYMBOL`, rowID = bld3f$ID)
+
+bld3.form <- bld3.col$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+
+bld3.meta <- blood3@phenoData@data
+```
+
+```{r processed sample 3}
+write.table(bld3.form, "../data/ncbi_processed/Blood_GSE103889.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+saveRDS(bld3.meta, "../data/ncbi_processed/meta_Blood_GSE103889.RDS")
+```
+
+
+
+
+
+#VAT mixtures
+Subcutaneous and visceral adipose tissue (VAT) from lean and obese pre-pubertal children
+```{r loading sample 1}
+#To access GEO Samples
+vat1 <-getGEO(filename = "../data/ncbi_raw-files/mixture_VAT_GDS4276.soft.gz")
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r formating sample 1}
+vat1table <- Table(vat1) #interprets sample as a categorical variable
+
+vat1col <- vat1table %>%
+  dplyr::select(ID_REF, `Gene symbol`, contains("GSM")) %>%
+  column_to_rownames(var="ID_REF") %>%
+  filter(`Gene symbol` != "")
+
+vat1.col <- collapseRows(vat1col[, -1], rowGroup = vat1col$`Gene symbol`, rowID = rownames(vat1col))
+
+vat1.form <- vat1.col$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+
+vat1.meta <- vat1@dataTable@columns
+
+```
+
+```{r processed sample 1}
+write.table(vat1.form, "../data/ncbi_processed/VAT_GDS4276.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+saveRDS(vat1.meta, "../data/ncbi_processed/meta_VAT_GDS4276.RDS")
+```

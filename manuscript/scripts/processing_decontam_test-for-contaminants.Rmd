@@ -1,0 +1,186 @@
+---
+title: "Check for contaminants"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tibble)
+library(decontam)
+library(tidyr)
+library(ape)
+library(readxl)
+```
+
+# Load data
+
+```{r}
+seqtab <- readRDS("../data/seqtabNoCf_update.RDS")
+tax <- readRDS("../data/taxf_update.RDS")
+
+meta <- read_excel("../data/Sample list from Nyelia_10092020.xlsx", skip = 6)
+```
+
+# Manipulate to DNA interface layer samples
+
+```{r}
+meta.f <- meta %>%
+  mutate(Sample.ID = paste0(sequence.id, "-I")) %>%
+  arrange(Sample.ID)
+
+seqtab.f <- seqtab %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "sample") %>%
+  filter(grepl("-I", sample)|sample == "ABNEG")
+
+goodsamps <- intersect(seqtab.f$sample, meta.f$Sample.ID)
+
+meta.fr <- meta.f %>%
+  filter(Sample.ID %in% goodsamps)
+seqtab.fr <- seqtab.f %>%
+  filter(sample %in% goodsamps)
+
+negvec <- c(rep(FALSE, 16), TRUE)
+```
+
+# run decontam
+
+We don't find any contaminants using this process.
+```{r}
+checkvals <- isContaminant(as.matrix(seqtab.fr[,-1]), conc = meta.fr$`Concentration (ug/ul)`)
+any(checkvals$contaminant == TRUE)
+
+checknegs <- isContaminant(as.matrix(seqtab.f[,-1]), neg = negvec)
+any(checknegs$contaminant == TRUE)
+```
+
+# Which organisms appear in the negative control?
+
+```{r}
+tax.form <- tax %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sequence")
+
+taxcounts <- seqtab.f %>%
+  gather(-sample, key = "Sequence", value = "counts") %>%
+  left_join(tax.form) 
+
+present.in.neg <- taxcounts %>%
+  filter(sample == "ABNEG") %>%
+  mutate(negpres = ifelse(counts > 0, TRUE, FALSE)) %>%
+  select(Sequence, negpres)
+```
+
+```{r}
+taxcounts.neg <- taxcounts %>%
+  left_join(present.in.neg)
+
+# Overall percentage of counts from negative organisms?
+taxcounts.neg %>%
+  group_by(negpres) %>%
+  summarise(counts = sum(counts)) %>%
+  mutate(percent.counts = counts/sum(counts))
+
+# Which taxa are in the negative control?
+
+taxcounts.negtax <- taxcounts.neg %>%
+  filter(negpres == TRUE) %>%
+  group_by(Sequence) %>%
+  summarize(total.counts = sum(counts)) %>%
+  left_join(tax.form)
+
+taxcounts.negtax
+```
+
+```{r}
+# How representative of proteobacteria is this group? 
+
+# Nvm, this was relevant in DNA not RNA
+
+# taxcounts.neg %>%
+#   filter(Phylum == "Proteobacteria") %>%
+#   mutate(Genus = ifelse(Genus == "Stakelama", "Stakelama", "Other")) %>%
+#   group_by(Genus) %>%
+#   summarise(counts = sum(counts))
+```
+
+## What's the percentage of sequences in the control?
+
+```{r}
+mean(present.in.neg$negpres)
+```
+
+# Use ape to check similarity of negative control sequences with other sequences
+
+We will write out the inputs here and record the commands put into the terminal, as this doesn't want to work with the R environment.
+
+## Write out starting fastas
+
+```{r}
+library(ShortRead)
+
+# The fasta's should contain all sequences with taxonomy assignments that are the same as the contaminants that are not fully labelled.
+
+taxa.to.write <- taxcounts.negtax %>%
+  filter(is.na(Genus)) %>%
+  mutate(fulltax = paste0(Kingdom, Phylum, Class, Order, Family, Genus)) 
+taxa.to.write <- unique(taxa.to.write$fulltax)
+
+tax.form.quesseq <- tax.form %>%
+  mutate(fulltax = paste0(Kingdom, Phylum, Class, Order, Family, Genus)) 
+
+allseq <- lapply(taxa.to.write, function(x) tax.form.quesseq %>% filter(fulltax == x) %>% select(Sequence) %>%
+                   add_count())
+
+allseq.stringset <- lapply(allseq, function(x) DNAStringSet(x$Sequence))
+names(allseq.stringset) <- taxa.to.write
+
+lapply(taxa.to.write, function(x) writeFasta(file = paste0("/fs/scratch/PAS1479/atbac/muscle-fastqs/input_",
+                                                              x, ".fasta"), 
+                                             object = allseq.stringset[[x]]))
+```
+
+## Record muscle commands
+
+```{r}
+# module load muscle/3.8.31
+
+# muscle -in input_BacteriaFirmicutesBacilliBacillalesStaphylococcaceaeNA.fasta -out output_BacteriaFirmicutesBacilliBacillalesStaphylococcaceaeNA.fasta
+
+# muscle -in input_EukaryotaNANANANANA.fasta -out output_EukaryotaNANANANANA.fasta
+```
+
+## Read in results, check similarity
+
+```{r}
+muscleout <- lapply(taxa.to.write, function(x) read.dna(format = "fasta",
+                                                      paste0("/fs/scratch/PAS1479/atbac/muscle-fastqs/output_",
+                                                             x, ".fasta")))
+
+distmats <- lapply(muscleout, function(x) dist.dna(x, as.matrix = TRUE))
+
+```
+
+```{r}
+eukmat <- distmats[[1]]
+colnames(eukmat) <- allseq[[1]]$Sequence
+rownames(eukmat) <- allseq[[1]]$Sequence
+
+eukstartseq <- eukmat[,taxcounts.negtax$Sequence[1]]
+badeuks <- names(subset(eukstartseq, eukstartseq < 0.03))
+
+# distmats[[2]]
+```
+
+## Remove contaminants, save resulting taxcounts object
+
+```{r}
+taxcounts.pass <- taxcounts %>%
+  filter(!(Sequence %in% badeuks)) 
+  # filter(!(Sequence %in% allseq[[2]]$Sequence)) %>%
+  # filter(!(sample == "ABNEG-C"))
+
+saveRDS(taxcounts.pass, "../data/taxcounts_interface-DNA_no-neg-contams.RDS")
+```

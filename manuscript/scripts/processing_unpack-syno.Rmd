@@ -1,0 +1,75 @@
+---
+title: "Synovial fluid neutrophils unpacking"
+author: "Rebecca Hoyd"
+date: "December 5, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(annotate)
+library(org.Hs.eg.db)
+library(WGCNA)
+```
+
+# Read in files and assign names
+```{r}
+sampnames <- list.files("../data/ncbi_raw-files/iso_syno_GSE116899_gsm")
+syno.files <- paste("../data/ncbi_raw-files/iso_syno_GSE116899_gsm", sampnames, sampnames, sep = "/")
+syno.gsm <- lapply(syno.files, function(x) read.table(x, sep = "\t", header = TRUE, stringsAsFactors = FALSE))
+```
+
+```{r}
+sampnames <- gsub("(^GSM\\d+)_.*", "\\1", sampnames)
+names(syno.gsm) <- sampnames
+```
+
+# Collapse relevant bits into one df
+```{r}
+syno.rel <- lapply(sampnames, function(x) syno.gsm[[x]] %>% 
+                     dplyr::select(EnsemblID, ReadCount) %>%
+                     mutate(sample = x))
+
+syno.tab <- bind_rows(syno.rel) %>%
+  as.data.frame() %>%
+  spread(key = "sample", value = "ReadCount")
+```
+
+# Add symbol information and collapsRows
+```{r}
+genesym <- mapIds(org.Hs.eg.db, keys = syno.tab$EnsemblID, keytype = "ENSEMBL", column = "SYMBOL")
+```
+
+```{r}
+syno.tab <- syno.tab %>%
+  column_to_rownames(var = 'EnsemblID')
+syno.col <- collapseRows(syno.tab, rowID = rownames(syno.tab), rowGroup = genesym)
+
+syno.fin <- syno.col$datETcollapsed %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene")
+```
+
+```{r}
+write.table(syno.fin, "../data/ncbi_processed/iso_syno_GSE116899.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+```
+
+# Define meta
+
+```{r}
+b <- "blood"
+s <- "synovial"
+
+sampnames
+tissue <- c(b,b,s,s,b,b,s,s,b,b,b,b,b,b,b,b,s,s,b,b,b,b,b,b,b,b,b,b,b,b)
+
+meta <- as.data.frame(cbind(sampnames, tissue))
+```
+
+```{r}
+saveRDS(meta, "../data/ncbi_processed/meta_syno.RDS")
+```

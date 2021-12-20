@@ -1,0 +1,147 @@
+---
+title: "Figure 2"
+author: "Rebecca Hoyd"
+date: "3/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(ggfortify)
+library(ggforce)
+library(dplyr)
+```
+
+
+# Drake targets
+```{r}
+loadd(GenePath.meta)
+loadd(pca.bldvat.exprs)
+```
+
+# Panel A: PCA results
+
+```{r}
+pca <- 
+  pca.bldvat.exprs %>%
+  mutate(combcat = gsub("\\.", ", ", combcat),
+         combcat = gsub("Blood", "PBN", combcat),
+         combcat = gsub("VAT", "VATN", combcat))
+
+p1<- ggplot(pca, aes(x = PC1, y = PC2)) +
+  geom_point(aes(color = combcat), alpha = .5, show.legend = TRUE) +
+  # stat_ellipse(geom = "polygon", alpha = .1, type = "norm") +
+  geom_mark_ellipse(aes(fill = combcat), #label = combcat), 
+                 concavity = 5,
+                 expand = 0,
+                 radius = 0,
+                 show.legend = FALSE) +
+  theme_bw() +
+  theme(axis.text = element_blank(), axis.ticks = element_blank(),
+        legend.text = element_text(size = 10),
+        legend.title = element_blank(),
+        axis.title = element_text(size = 10)) +
+  scale_color_brewer(palette="Dark2") +
+  scale_fill_brewer(palette="Dark2") +
+  theme(legend.position = c(0.7, 0.7),
+        legend.box.background = element_rect(color = "black"))
+  ggsave("../../figures/pca_vat-obesity_no-inset.png",
+         height = 3, width = 4.5)
+
+# p2 <- ggplot(pca, aes(x = PC1, y = PC2, color = combcat, fill = combcat, alpha = .5)) +
+#   geom_point(show.legend = FALSE) +
+#   # stat_ellipse(geom = "polygon", alpha = .1, type = "norm", show.legend = F) +
+#   theme_bw() +
+#   labs(x = "", y = "") +
+#   xlim(c(-1.7e5, -1.1e5)) +
+#   ylim(c(-4000, 11000)) +
+#   theme(axis.text = element_blank(), axis.ticks = element_blank(),
+#         legend.text = element_text(size = 10),
+#         legend.title = element_blank(),
+#         axis.title = element_text(size = 10)) +
+#   scale_color_brewer(palette="Dark2") +
+#   scale_fill_brewer(palette="Dark2")
+# 
+# p1 +
+#   # annotation_custom(ggplotGrob(p2), 
+#   #                   xmin = 4e5, xmax = 9e5, ymin = 1.5e5, ymax = 6.8e5) +
+#   ggsave("../../figures/figure3/pca_vat-obesity_inset.png",
+#          height = 4, width = 5)
+```
+
+# Panel B: Barplots
+
+```{r}
+GenePath.meta %>%
+  filter(obes.stat == "obese") %>%
+  group_by(Gene, Role, source) %>%
+  mutate(counts.m = mean(counts),
+            std.err = sqrt(var(counts)),
+            upper.int = counts.m + std.err,
+            lower.int = counts.m - std.err) %>%
+  ggplot(aes(x = Gene, y = counts.m, fill = source)) +
+  facet_row(vars(Role), scales = "free", space = "free") +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = lower.int, ymax = upper.int), position = "dodge") +
+  labs(x = "", y = "Expression") +
+  theme_bw() +
+  theme(
+    # axis.ticks.y = element_blank(),
+    #     axis.text.y = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) 
+  # ggsave("../../figures/barplots_pathway-gene-exp_obese.png", width = 15)
+
+
+
+GenePath.meta %>%
+  filter(!is.na(source)) %>%
+  group_by(Gene, Role, source) %>%
+  summarise(counts.m = mean(counts),
+            std.err = sqrt(var(counts)),
+            upper.int = counts.m + std.err,
+            lower.int = counts.m - std.err,
+            log.upper.int = counts.m + (0.434 * (std.err/counts.m)),
+            log.lower.int = counts.m - (0.434 * (std.err/counts.m))) %>%
+  ggplot(aes(x = Gene, y = log(counts.m))) +
+  geom_boxplot(aes(fill = source)) +
+  facet_wrap(~Role, scales = "free", nrow = 2) +
+  # facet_row(vars(Role), scales = "free", space = "free") +
+  # geom_col(position = "dodge") +
+  # geom_errorbar(aes(ymin = log.lower.int, ymax = log.upper.int), position = "dodge") +
+  labs(x = "", y = "Expression") +
+  theme_bw() +
+  theme(
+    # axis.ticks.y = element_blank(),
+    #     axis.text.y = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) 
+  ggsave("../../figures/barplots_pathway-gene-exp_all.png", width = 15)
+```
+```{r}
+# dodge <- position_dodge(width = 0.4)
+
+
+GenePath.meta %>%
+  drop_na(counts) %>%
+  mutate(Role = gsub("(.*)/LPS induced genes", "\\1", Role),
+         Role = gsub("ROS production", "ROS", Role),
+         Role = gsub("Inhibition of Apoptosis", "Apoptosis", Role)) %>%
+  mutate(Role = fct_relevel(Role, "Inflammation")) %>%
+  ggplot(aes(x = Gene, y = log(counts))) +
+  # geom_violin(aes(fill = source), position = dodge) +
+  geom_jitter(alpha = 0.5, aes(color = source), show.legend = TRUE)+
+  geom_boxplot(aes(fill = source), #position = dodge, 
+               show.legend = FALSE) + #width = 0.2,
+  facet_grid(cols = vars(Role), scales = "free", space = "free") +
+    labs(x = "", y = "Expression") +
+  theme_bw(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_brewer(palette="Dark2") +
+  scale_fill_brewer(palette="Dark2") 
+  ggsave("../../figures/pathway-genes_boxplot.svg", 
+         height = 4, width = 18)
+
+```
+
+

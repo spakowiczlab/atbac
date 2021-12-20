@@ -1,0 +1,98 @@
+---
+title: "Figure 6"
+author: "YunZhou Liu"
+date: "7/13/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+```
+
+
+#load objects from drake
+```{r}
+loadd(TCGA_box_dat)
+loadd(TCGA_surv_dat)
+loadd(canc.df)
+loadd(neut)
+loadd(GTEx_box_dat)
+```
+
+
+```{r}
+ggplot()+
+  geom_rect(data = GTEx_box_dat$numpatkey, mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 1, fill=type), inherit.aes = F,show.legend = F, alpha = 0.3)+
+  geom_boxplot(data = GTEx_box_dat$GTEx_plot, aes(x = as.factor(patnum), y = relative_abundance, fill = cell_type), inherit.aes = F, show.legend = T, outlier.size = 0.3)+
+  scale_x_discrete(breaks = unique(GTEx_box_dat$numpatkey$patnum), labels = unique(GTEx_box_dat$numpatkey$Tissue))+
+  theme(axis.text.x = element_text(size=10, angle=0))+
+  theme_bw()+
+  scale_fill_manual(values=c("tomato","gold"), breaks = c("Blood Neutrophil","VAT Neutrophil"), name = "Neutrophil Type")+
+  xlab("Tissue")+
+  ylab("Relative Abundance")+
+  coord_flip()
+  ggsave("../../figures/GTEx_VAT.png", height = 8, width =6)
+  
+  #no underscore...(legend)
+  #cap the legend title
+```
+
+#COAD box plot
+```{r cars}
+ggplot()+
+  geom_rect(data = TCGA_box_dat$numtissuekey, mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 0.6, fill=type), inherit.aes = F,show.legend = F, alpha = 0.3)+
+  geom_boxplot(data = TCGA_box_dat$dat_plot, aes(x = as.factor(patnum), y = relative_abundance, fill = cell_type), inherit.aes = F, show.legend = T)+
+  scale_x_discrete(breaks = unique(TCGA_box_dat$numtissuekey$patnum), labels = unique(TCGA_box_dat$numtissuekey$Tissue))+
+  theme(axis.text.x = element_text(size=10, angle=0))+
+  theme_bw()+
+  scale_fill_manual(values=c("tomato","gold"), breaks = c("Blood Neutrophil","VAT Neutrophil"), name = "Neutrophil Type")+
+  xlab("")+
+  ylab("Relative Abundance")+
+  coord_flip()
+ggsave("../../figures/COAD_VAT.png", height = 3, width = 4)
+
+```
+
+
+#hoyd plot for threshold
+```{r}
+ggplot(canc.df, aes(x=Percentiles, y=pval))+
+  geom_line(aes(color = `hazard ratio`, group=1))+
+  geom_hline(yintercept = log(0.05))+
+  ylab("log(pval)")+
+  theme_bw()
+  ggsave("../../figures/hoyd_COAD.png", height = 10, width = 15)
+  #legend title: hazard ratio or 
+  #less than / greater than 1
+  #cap axis title
+```
+
+
+#Survival
+```{r pressure, echo=FALSE}
+ggsurvplot_facet(TCGA_surv_dat$surv_plot_Blo, TCGA_surv_dat$SURV_d, facet.by = "Tissue", scales = "free_x") +
+  theme_bw()
+ggsave("../../figures/COAD_surv_Blo.png", height = 3, width = 3)
+ggsurvplot_facet(TCGA_surv_dat$surv_plot_VAT, TCGA_surv_dat$SURV_d, facet.by = "Tissue", scales = "free_x") +
+  theme_bw()
+ggsave("../../figures/COAD_surv_VAT.png", height = 3, width = 3)
+
+```
+
+
+# micro vs. neutrophil
+```{r}
+ggplot(neut,aes(x=sum.ra, y=relative_abundance,color=cell_type))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  facet_wrap(~Tissue, scales = "free")+
+  theme_bw()+
+  theme(axis.text.x = element_text(size = 7))+
+  ylab("Neutrophil relative abundance")+
+  xlab("Gram negative microbs relative abundance")
+  ggsave("../../figures/COAD.micro_neut.png")
+  
+  #try log() plot to spread the dots
+  #
+  
+```
