@@ -1,0 +1,68 @@
+---
+title: "16S absolute abundance"
+format: html
+editor: visual
+---
+
+```{r}
+
+library(tidyverse)
+
+```
+
+ 
+
+```{r load data}
+
+x <- read_csv("../data/zymo_abs-abundance.csv") %>%
+  drop_na(sample_id)
+
+head(x)
+```
+
+```{r}
+
+tissue <- 
+  x %>%
+  mutate(source = if_else(grepl("Pre|Post|End|^Leangavage$|^Obesegavage$", customer_label),
+                          true = "stool",
+                          false = "tissue"),
+         tissue_type = if_else(grepl("VAT", customer_label),
+                               true = "VAT",
+                               false = if_else(grepl("Liver", customer_label),
+                                               true = "Liver",
+                                               false = if_else(grepl("Brain", customer_label),
+                                                               true = "Brain",
+                                                               false = "stool"))),
+         gavage = if_else(grepl("Lean", customer_label),
+                             true = "Lean",
+                             false = if_else(grepl("Obese", customer_label),
+                                             true = "Obese",
+                                             false = "Saline")),
+         diet = if_else(grepl("HFD", customer_label),
+                        true = "HFD",
+                        false = if_else(grepl("Chow", customer_label),
+                                        true = "Chow",
+                                        false = "Other")))
+
+
+tissue %>%
+  group_by(source, tissue_type, gavage, diet) %>%
+  summarize(n = n())
+```
+
+```{r}
+tissue %>%
+  filter(source == "tissue") %>%
+  ggplot(aes(x = tissue_type, y = log(`genome_copies_per_ul*`))) +
+  geom_boxplot(aes(color = gavage), 
+               outlier.shape = NA) +
+  geom_point(aes(color = gavage, 
+                 shape = diet), 
+             size = 3,
+             position = position_jitterdodge(jitter.width = 0.15)) +
+  theme_bw()
+
+ggsave("../figures/zymo_abs-abundance_tissues.png",
+       height = 4, width = 6)
+```
