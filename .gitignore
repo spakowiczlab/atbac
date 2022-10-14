@@ -37,3 +37,6 @@ vignettes/*.pdf
 
 # Large RAs from COAD
 ra_COAD.csv
+
+# Zymo folder with long file names
+zr8258.16S_220923.zymo
