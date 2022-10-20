@@ -121,7 +121,7 @@ distmat %>%
                              gsub("gavage", " gavage,", diet.group))) %>%
   ggplot(aes(x = timepoint, y = -distance, fill = diet.group)) +
   geom_boxplot() +
-  labs(x = "Time point", y = "Negative Gower's distance") +
+  labs(x = "Time point", y = "Similarity to Gavage") +
   scale_fill_brewer(palette = "Dark2", name = "Diet group",
                     na.value = "grey") +
   theme_bw()
