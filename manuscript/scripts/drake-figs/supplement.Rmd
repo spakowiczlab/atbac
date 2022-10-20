@@ -116,10 +116,12 @@ distmat <- pca.in %>%
 
 distmat %>%
   mutate(timepoint = fct_relevel(timepoint, "Pre", "Post"),
-         diet.group = gsub("gavage", " gavage,", diet.group)) %>%
-  ggplot(aes(x = timepoint, y = distance, fill = diet.group)) +
+         diet.group = ifelse(is.na(diet.group),
+                             "Before diet",
+                             gsub("gavage", " gavage,", diet.group))) %>%
+  ggplot(aes(x = timepoint, y = -distance, fill = diet.group)) +
   geom_boxplot() +
-  labs(x = "Time point", y = "Gower's distance") +
+  labs(x = "Time point", y = "Negative Gower's distance") +
   scale_fill_brewer(palette = "Dark2", name = "Diet group",
                     na.value = "grey") +
   theme_bw()
