@@ -34,12 +34,12 @@ tissue <-
                                                false = if_else(grepl("Brain", customer_label),
                                                                true = "Brain",
                                                                false = "stool"))),
-         gavage = if_else(grepl("Lean", customer_label),
+         Gavage = if_else(grepl("Lean", customer_label),
                              true = "Lean",
                              false = if_else(grepl("Obese", customer_label),
                                              true = "Obese",
                                              false = "Saline")),
-         diet = if_else(grepl("HFD", customer_label),
+         Diet = if_else(grepl("HFD", customer_label),
                         true = "HFD",
                         false = if_else(grepl("Chow", customer_label),
                                         true = "Chow",
@@ -47,7 +47,7 @@ tissue <-
 
 
 tissue %>%
-  group_by(source, tissue_type, gavage, diet) %>%
+  group_by(source, tissue_type, Gavage, Diet) %>%
   summarize(n = n())
 ```
 
@@ -55,13 +55,16 @@ tissue %>%
 tissue %>%
   filter(source == "tissue") %>%
   ggplot(aes(x = tissue_type, y = log(`genome_copies_per_ul*`))) +
-  geom_boxplot(aes(color = gavage), 
+  geom_boxplot(aes(color = Gavage), 
                outlier.shape = NA) +
-  geom_point(aes(color = gavage, 
-                 shape = diet), 
+  geom_point(aes(color = Gavage, 
+                 shape = Diet), 
              size = 3,
              position = position_jitterdodge(jitter.width = 0.15)) +
-  theme_bw()
+  theme_bw(base_size = 10) +
+  scale_color_viridis_d() +
+  labs(x = "",
+       y = "Log(Microbe Genome Copies per ul)")
 
 ggsave("../figures/zymo_abs-abundance_tissues.png",
        height = 4, width = 6)
