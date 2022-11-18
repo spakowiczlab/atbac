@@ -119,13 +119,18 @@ distmat %>%
          diet.group = ifelse(is.na(diet.group),
                              "Before diet",
                              gsub("gavage", " gavage,", diet.group))) %>%
-  ggplot(aes(x = timepoint, y = -distance, fill = diet.group)) +
-  geom_boxplot() +
+  ggplot(aes(x = timepoint, y = 1-distance 
+             # fill = diet.group
+             )) +
+  geom_boxplot(fill = "grey") +
   labs(x = "Time point", y = "Similarity to Gavage") +
-  scale_fill_brewer(palette = "Dark2", name = "Diet group",
-                    na.value = "grey") +
+  scale_x_discrete(breaks = c("Pre", "Post", "End"),
+          labels = c("Pre-ABx", "Post-ABx", 
+                     "End")) +
+  # scale_fill_brewer(palette = "Dark2", name = "Diet group",
+  #                   na.value = "grey") +
   theme_bw()
-ggsave("../../figures/boxplot_zymo_distance-from-gavage.png")
+ggsave("../../figures/boxplot_zymo_distance-from-gavage.png", width = 4, height = 3)
 ```
 
 # Boxplots absolute abundance

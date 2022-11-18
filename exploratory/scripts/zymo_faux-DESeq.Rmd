@@ -1,0 +1,171 @@
+---
+title: "zymo_faux-DESeq"
+output: html_document
+date: '2022-11-15'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(glmm)
+library(tidyverse)
+library(broom)
+library(rlist)
+library(ggrepel)
+```
+
+# Load data
+
+```{r}
+zymo.seqtab <- read.csv("../../manuscript/data/zr8258.16S_220923.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_Abundance_Table.csv")
+zymo.tax <- read.table("../../manuscript/data/zr8258.16S_220923.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_tax_assignments.txt", sep = "\t")
+```
+
+# Functions
+
+```{r function for data prep}
+formatTax <- function(){
+  tmp <- zymo.tax %>%
+    select(V1, V2) %>%
+    separate(V2, into = c("kingdom", "phylum", "class", "order",
+                          "family", "genus", "species"),
+             sep = ";") %>%
+    mutate(species = gsub("s__", "", species),
+           species = paste0("s__", gsub("g__", "", genus),".", species))
+  tmp$species <- make.names(tmp$species)
+  return(tmp)
+  
+}
+
+exoRAtowide <- function(data, taxlev){
+  tmp <- data
+  tmp$Taxa <- tmp[[taxlev]]
+  tmp.wide<- tmp %>%
+    filter(!is.na(Taxa)) %>%
+    group_by(seqs, Taxa) %>%
+    summarise(ra = sum(counts, na.rm = T)) %>%
+    spread(key = "Taxa", value = "ra")
+
+  return(tmp.wide)
+}
+
+exoToDF <- function(taxalevels = c("kingdom", "phylum", "class", 
+                                    "order", "family", "genus", "species"), 
+                     data){
+  w.ls <- lapply(taxalevels, function(x) exoRAtowide(data, x))
+  w.df <- reduce(w.ls, function(x,y) left_join(x,y)) 
+  return(w.df)
+}
+
+formatModelData <- function(){
+  tax <- formatTax()
+  dessamps <- zymo.seqtab %>%
+    filter(grepl("gavage.HFD.End", seqs))
+  all0 <- names(subset(colSums(dessamps[,-1]), colSums(dessamps[,-1]) == 0))
+  
+  desseqs <- dessamps %>%
+    select(-all0) %>%
+    pivot_longer(-seqs, names_to = "V1", values_to = "counts") %>%
+    left_join(tax)
+  
+  desseqs.w <- exoToDF(data = desseqs)
+  return(desseqs.w)
+}
+```
+
+```{r functions for analysis}
+capture.models.univ <- function(outcome, lfun, modin, mics){
+  mods.list <- lapply(mics, function(x) try({glm(as.formula(paste0(outcome, " ~ `", x, "`")), family = Gamma, data = modin) %>%
+                        tidy()})
+                      )
+                      
+  mods.list.clean <- list.clean(mods.list, function(x) is.null(x))
+  mods.df <- bind_rows(mods.list.clean)
+  return(mods.df)
+}
+
+calculatePValues <- function(){
+  moddat <- formatModelData()
+  microbes <- colnames(moddat[,-1])
+  
+  moddat.lab <- moddat %>%
+    mutate(ob.lean = ifelse(grepl("Lean", seqs), 1,2))
+  
+  mod.pvals <- capture.models.univ("ob.lean", "gamma", moddat.lab, microbes) %>%
+    filter(term != "(Intercept)") %>%
+    select(term, p.value)
+  
+  return(mod.pvals)
+  
+}
+
+calculateFoldChange <- function(){
+  moddat <- formatModelData()
+  
+  foldcalc <- moddat %>%
+    pivot_longer(-seqs, names_to = "microbes", values_to = "counts") %>%
+    mutate(gavage = gsub("gavage.*", "", seqs)) %>%
+    group_by(gavage, microbes) %>%
+    summarise(gmean = mean(counts)) %>%
+    pivot_wider(names_from = "gavage", values_from = gmean) %>%
+    mutate(log2foldchange = log(Obese/Lean, base = 2)) %>%
+    rename("term" = "microbes") %>%
+    select(term, log2foldchange)
+  
+  return(foldcalc)
+}
+
+volcanoPlotDat <- function(){
+  pvals <- calculatePValues()
+  fold <- calculateFoldChange()
+  
+  plotin <- pvals %>%
+    left_join(fold) %>%
+    mutate(taxlev = ifelse(p.value < 0.05, str_sub(term, 1, 1), NA),
+           textlab = ifelse(p.value < 0.05, term, NA),
+           inf.rescale = ifelse(log2foldchange == Inf, 10,
+                                ifelse(log2foldchange == -Inf, -10, log2foldchange)))
+  
+  return(plotin)
+}
+```
+
+
+# Visuals
+
+```{r}
+volplot <- volcanoPlotDat()
+
+volplot %>%
+  filter(!inf.rescale %in% c(-10,10) & !is.na(inf.rescale)) %>%
+  filter(!term %in% c("f__NA", "g__NA")) %>%
+  mutate(textlab = ifelse(grepl("s__NA.sp", textlab), "", textlab)) %>%
+  ggplot(aes(x = inf.rescale, y = -log(p.value), color = taxlev, label = textlab)) +
+  geom_point() +
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_text_repel(max.overlaps = 20, show.legend = F) +
+  geom_hline(yintercept = -log(0.05), lty = 2) +
+  labs(x = "Log2FoldChange") +
+  scale_color_brewer(palette = "Dark2", na.value = "grey") +
+  # xlim(c(-10,10)) +
+  theme_bw() +
+  theme(text = element_text(size = 8))
+
+ggsave("../figures/volcano_HFD_Obese-Lean.png")
+```
+
+# Table
+
+```{r}
+miccounts <- formatModelData()
+micmeans <- miccounts %>%
+  pivot_longer(-seqs, names_to = "microbe", values_to = "counts") %>%
+  mutate(gavage = gsub("gavage.*", "", seqs)) %>%
+  group_by(gavage, microbe) %>%
+  summarise(gmean = mean(counts)) %>%
+  pivot_wider(names_from = "gavage", values_from = gmean) %>%
+  filter(Lean == 0 | Obese == 0) %>%
+  arrange(desc(Lean), Obese)
+
+write.csv(micmeans, "../tables/HFD-stool_found-in-one.csv", row.names = F)
+```

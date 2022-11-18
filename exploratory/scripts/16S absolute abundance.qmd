@@ -54,18 +54,39 @@ tissue %>%
 ```{r}
 tissue %>%
   filter(source == "tissue") %>%
-  ggplot(aes(x = tissue_type, y = log(`genome_copies_per_ul*`))) +
-  geom_boxplot(aes(color = Gavage), 
-               outlier.shape = NA) +
-  geom_point(aes(color = Gavage, 
-                 shape = Diet), 
+  mutate(dietdummy = ifelse(tissue_type == "VAT", Diet, "HFD")) %>%
+  ggplot(aes(x = Gavage, y = log(`genome_copies_per_ul*`))) +
+  facet_wrap(vars(tissue_type), nrow = 1, strip.position = "bottom") +
+  geom_boxplot(aes(fill = Gavage, color = dietdummy), 
+               outlier.shape = NA
+               ) +
+  geom_point(aes(shape = Diet, 
+                 fill = Gavage,
+                 group = dietdummy), 
              size = 3,
-             position = position_jitterdodge(jitter.width = 0.15)) +
+             color = "grey30",
+             position = position_jitterdodge(jitter.width = .1)
+             ) +
+  
   theme_bw(base_size = 10) +
-  scale_color_viridis_d() +
+  scale_fill_manual(breaks = c("Lean", "Obese", "Saline"),
+                    values = c("#A76686","#94BBC6","#FEFE7D"),
+                    aesthetics = c( "fill")) +
+  scale_shape_manual(breaks = c("Chow", 
+                                "HFD"),
+                     values = c(21,
+                                24)
+                     ) +
+  scale_color_manual(values = c("grey25", "grey30")) +
   labs(x = "",
-       y = "Log(Microbe Genome Copies per ul)")
+       y = "Log(Microbe Genome Copies per ul)") +
+  guides(shape = guide_legend(override.aes = list(fill = "black")),
+         fill = guide_legend(override.aes = list(shape = NA)),
+         color = F) +
+  theme_bw() +
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
 
 ggsave("../figures/zymo_abs-abundance_tissues.png",
-       height = 4, width = 6)
+     height = 4, width = 6)
 ```
