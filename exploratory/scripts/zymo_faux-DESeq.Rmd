@@ -157,15 +157,19 @@ ggsave("../figures/volcano_HFD_Obese-Lean.png")
 # Table
 
 ```{r}
+pval.table <- volplot %>%
+  mutate(term = gsub("`", "", term)) %>%
+  select(-taxlev, -textlab, -inf.rescale) %>%
+  rename("microbe" = "term")
+
 miccounts <- formatModelData()
 micmeans <- miccounts %>%
   pivot_longer(-seqs, names_to = "microbe", values_to = "counts") %>%
-  mutate(gavage = gsub("gavage.*", "", seqs)) %>%
+  mutate(gavage = paste0("mean.", gsub("gavage.*", "", seqs))) %>%
   group_by(gavage, microbe) %>%
   summarise(gmean = mean(counts)) %>%
   pivot_wider(names_from = "gavage", values_from = gmean) %>%
-  filter(Lean == 0 | Obese == 0) %>%
-  arrange(desc(Lean), Obese)
+  left_join(pval.table)
 
-write.csv(micmeans, "../tables/HFD-stool_found-in-one.csv", row.names = F)
+write.csv(micmeans, "../tables/HFD-stool_pvals.csv", row.names = F)
 ```
