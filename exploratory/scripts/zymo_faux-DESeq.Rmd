@@ -128,6 +128,32 @@ volcanoPlotDat <- function(){
   
   return(plotin)
 }
+
+foundInStool <- function(){
+  tax <- formatTax()
+  
+  dessamps <- zymo.seqtab %>%
+    filter(grepl("gavage$", seqs))
+  all0 <- names(subset(colSums(dessamps[,-1]), colSums(dessamps[,-1]) == 0))
+  
+  desseqs <- dessamps %>%
+    select(-all0) %>%
+    pivot_longer(-seqs, names_to = "V1", values_to = "counts") %>%
+    left_join(tax)
+  
+  desseqs.w <- exoToDF(data = desseqs)
+  
+  desseqs.l <- desseqs.w %>%
+    column_to_rownames(var = "seqs") %>%
+    t() %>%
+    as.data.frame() %>%
+    rownames_to_column(var = "microbe") %>%
+    mutate(found.in.Lean = ifelse(Leangavage > 0, 1, 0),
+           found.in.Obese = ifelse(Obesegavage > 1,1,0)) %>%
+    select(microbe, contains("found.in"))
+  
+  return(desseqs.l)
+}
 ```
 
 
@@ -135,18 +161,37 @@ volcanoPlotDat <- function(){
 
 ```{r}
 volplot <- volcanoPlotDat()
+foundin <- foundInStool() %>%
+  mutate(term = microbe)
 
 volplot %>%
   filter(!inf.rescale %in% c(-10,10) & !is.na(inf.rescale)) %>%
   filter(!term %in% c("f__NA", "g__NA")) %>%
-  mutate(textlab = ifelse(grepl("s__NA.sp", textlab), "", textlab)) %>%
+  mutate(textlab = ifelse(grepl("s__NA.sp", textlab), "", textlab),
+         textlab = ifelse(abs(log2foldchange) > 2.5, textlab, NA),
+         textlab = ifelse(textlab %in% c("g__Akkermansia", 
+                                         "f__Verrucomicrobiaceae",
+                                         "o__Verrucomicrobiales",
+                                         "c__Verrucomicrobiae",
+                                         "p__Verrucomicrobia"),
+                          NA,
+                          textlab)
+         ) %>%
+  left_join(foundin) %>%
+  mutate(found.in.Obese = as.character(replace_na(found.in.Obese, 0)),
+         found.in.Lean = as.character(replace_na(found.in.Lean, 0)),
+         foundin.code = case_when(found.in.Obese ==1 & found.in.Lean == 1 ~ "Both",
+                                  found.in.Obese == 1 & found.in.Lean == 0 ~ "Obese",
+                                  found.in.Obese ==0 & found.in.Lean == 1~ "Lean",
+                                  found.in.Obese ==0 & found.in.Lean == 0 ~ "Neither")) %>%
   ggplot(aes(x = inf.rescale, y = -log(p.value), color = taxlev, label = textlab)) +
-  geom_point() +
+  geom_point(aes(shape = foundin.code)) +
   geom_vline(xintercept = 0, lty = 2) +
   geom_text_repel(max.overlaps = 20, show.legend = F) +
   geom_hline(yintercept = -log(0.05), lty = 2) +
   labs(x = "Log2FoldChange") +
   scale_color_brewer(palette = "Dark2", na.value = "grey") +
+  scale_shape(name = "Gavage presence") +
   # xlim(c(-10,10)) +
   theme_bw() +
   theme(text = element_text(size = 8))
@@ -173,3 +218,4 @@ micmeans <- miccounts %>%
 
 write.csv(micmeans, "../tables/HFD-stool_pvals.csv", row.names = F)
 ```
+
