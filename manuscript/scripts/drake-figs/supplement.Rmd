@@ -145,12 +145,12 @@ stool.samps <- zymo.abun.abs %>%
   mutate(timepoint = fct_relevel(timepoint, "Pre", "Pos", "End"))
 
 stool.samps %>%
-  ggplot(aes(x = timepoint, y = gene_copies_per_ul)) +
+  ggplot(aes(x = timepoint, y = log(gene_copies_per_ul))) +
   geom_boxplot() +
   scale_x_discrete(breaks = c("Pre", "Pos", "End"),
           labels = c("Pre-antibiotic", "Post-antibiotic", 
                      "Study end")) +
-  labs(x = "Time point", y = "Gene copies per ul sample") +
+  labs(x = "Time point", y = "log(Gene copies per ul sample)") +
   theme_bw()
-# ggsave("../../figures/boxplot_zymo-absolute-abundance.png")
+ggsave("../../figures/boxplot_zymo-absolute-abundance.png")
 ```
