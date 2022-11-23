@@ -121,8 +121,8 @@ volcanoPlotDat <- function(){
   
   plotin <- pvals %>%
     left_join(fold) %>%
-    mutate(taxlev = ifelse(p.value < 0.05, str_sub(term, 1, 1), NA),
-           textlab = ifelse(p.value < 0.05, term, NA),
+    mutate(taxlev = ifelse(p.value < 0.1, str_sub(term, 1, 1), NA),
+           textlab = ifelse(p.value < 0.1, term, NA),
            inf.rescale = ifelse(log2foldchange == Inf, 10,
                                 ifelse(log2foldchange == -Inf, -10, log2foldchange)))
   
@@ -161,8 +161,8 @@ volcanoPlotDat <- function(){
 
 ```{r}
 volplot <- volcanoPlotDat()
-foundin <- foundInStool() %>%
-  mutate(term = microbe)
+# foundin <- foundInStool() %>%
+#   mutate(term = microbe)
 
 volplot %>%
   filter(!inf.rescale %in% c(-10,10) & !is.na(inf.rescale)) %>%
@@ -184,10 +184,12 @@ volplot %>%
   #                                 found.in.Obese == 1 & found.in.Lean == 0 ~ "Obese",
   #                                 found.in.Obese ==0 & found.in.Lean == 1~ "Lean",
   #                                 found.in.Obese ==0 & found.in.Lean == 0 ~ "Neither")) %>%
-  ggplot(aes(x = inf.rescale, y = -log(p.value), color = taxlev, label = textlab)) +
+  ggplot(aes(x = inf.rescale, y = -log(p.value), 
+             color = taxlev, label = textlab)) +
   geom_point() +
-  geom_vline(xintercept = 0, lty = 2) +
-  geom_text_repel(max.overlaps = 20, show.legend = F) +
+  geom_vline(xintercept = 2, lty = 2) +
+  geom_vline(xintercept = -2, lty = 2) +
+  geom_text_repel(max.overlaps = 5, show.legend = F) +
   geom_hline(yintercept = -log(0.05), lty = 2) +
   labs(x = "Log2FoldChange") +
   scale_color_brewer(palette = "Dark2", na.value = "grey") +
@@ -195,8 +197,68 @@ volplot %>%
   theme_bw() +
   theme(text = element_text(size = 8))
 
-ggsave("../figures/volcano_HFD_Obese-Lean_VAT.png")
+ggsave("../figures/volcano_HFD_Obese-Lean_VAT.png",
+       height = 3, width = 4)
 ```
+
+```{r}
+volplot %>%
+  mutate(textlab_genus = if_else(grepl("g_", textlab),
+                                 true = textlab,
+                                 false = NA_character_)) %>%
+  mutate(textlab_trunc = gsub("\\w__(.*)", "\\1", textlab)) %>%
+  mutate(textlab_trunc_red = if_else(grepl(".*ales$|.*aceae$", textlab_trunc),
+                                     true = NA_character_,
+                                     false = textlab_trunc)) %>%
+  mutate(textlab_trunc_red = if_else(grepl("Parab", textlab_trunc_red),
+                                     true = "Paraburkholderia insula",
+                                     false = textlab_trunc_red)) %>%
+  mutate(Taxonomy = if_else(grepl("c", taxlev),
+                               true = "Class",
+                               false = if_else(grepl("f", taxlev),
+                               true = "Family",
+                               false = if_else(grepl("g", taxlev),
+                               true = "Genus",
+                               false = if_else(grepl("o", taxlev),
+                               true = "Order",
+                               false = if_else(grepl("s", taxlev),
+                               true = "Species",
+                               false = taxlev)))))) %>%
+  mutate(Taxonomy = fct_relevel(Taxonomy, c("Species", "Genus", "Family", "Order", "Class"))) %>%
+  filter(!inf.rescale %in% c(-10,10) & !is.na(inf.rescale)) %>%
+  filter(!term %in% c("f__NA", "g__NA")) %>%
+  # mutate(textlab = ifelse(grepl("s__NA.sp", textlab), "", textlab),
+  #        textlab = ifelse(abs(log2foldchange) > 2.5, textlab, NA),
+  #        textlab = ifelse(textlab %in% c("g__Akkermansia", 
+  #                                        "f__Verrucomicrobiaceae",
+  #                                        "o__Verrucomicrobiales",
+  #                                        "c__Verrucomicrobiae",
+  #                                        "p__Verrucomicrobia"),
+  #                         NA,
+  #                         textlab)
+  #        ) %>%
+  # left_join(foundin) %>%
+  # mutate(found.in.Obese = as.character(replace_na(found.in.Obese, 0)),
+  #        found.in.Lean = as.character(replace_na(found.in.Lean, 0)),
+  #        foundin.code = case_when(found.in.Obese ==1 & found.in.Lean == 1 ~ "Both",
+  #                                 found.in.Obese == 1 & found.in.Lean == 0 ~ "Obese",
+  #                                 found.in.Obese ==0 & found.in.Lean == 1~ "Lean",
+  #                                 found.in.Obese ==0 & found.in.Lean == 0 ~ "Neither")) %>%
+  ggplot(aes(x = inf.rescale, y = -log(p.value))) +
+  geom_vline(xintercept = 2, lty = 2, color = "grey50") +
+  geom_vline(xintercept = -2, lty = 2, color = "grey50") +
+  geom_hline(yintercept = -log(0.05), lty = 2, color = "grey50") +
+  geom_point(aes(color = Taxonomy)) +
+  geom_text_repel(aes(label = textlab_trunc_red), size = 3,
+                  show.legend = FALSE) +
+  labs(x = "Log2FoldChange") +
+  scale_color_brewer(palette = "Dark2", na.value = "grey") +
+  # xlim(c(-10,10)) +
+  theme_bw(base_size = 9)
+ggsave("../figures/volcano_HFD_Obese-Lean_VAT.png",
+       height = 4.5, width = 4)
+```
+
 
 # Table
 
