@@ -42,7 +42,7 @@ ggsave("../../figures/heatmap_ggplot_neutsig.pdf", height = 5, width = 7)
 # Panel B: Heatmap dendrogram
 
 ```{r}
-ggdendrogram(siggenes.celldend, rotate = T) +
+ggdendrogram(siggenes.celldend, rotate = T)
   ggsave("../../figures/dendrogram_signature-matrix-immunecells.pdf")
 ```
 
@@ -75,9 +75,10 @@ deconvolved.fractions %>%
                     labels = c("Other", "VAT neutrophil", "Blood neutrophil"),
                     name = "Predicted Cell Type") +
   labs(x = "", y = "Cell fraction") +
-  theme_bw() +
+  theme_bw(base_size = 10) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) 
-ggsave("../../figures/Fig5_stackedbar.pdf", height = 4, width = 6)
+ggsave("../../figures/Fig5_stackedbar.pdf", height = 2, width = 4)
+ggsave("../../figures/Fig5_stackedbar.png", height = 2, width = 5.5)
 ```
 
 ```{r}

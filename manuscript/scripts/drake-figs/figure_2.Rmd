@@ -102,10 +102,10 @@ bacteria.desres %>%
   geom_vline(xintercept = -2, linetype = "dashed") +
   geom_vline(xintercept = 2, linetype = "dashed") +
   scale_color_brewer(palette = "Dark2", na.value = "grey50", name = "Taxonomy Level") +
-  theme_bw() +
-  theme(legend.position = c(0.15, 0.2),
-        legend.box.background = element_rect(color = "black")) +
-  ggsave("../../figures/volcano_deseq2-DNA-results.pdf") +
+  theme_bw(base_size = 10) 
+  # theme(legend.position = c(0.15, 0.2),
+  #       legend.box.background = element_rect(color = "black"))
+  ggsave("../../figures/volcano_deseq2-DNA-results.pdf") 
   ggsave("../../figures/volcano_deseq2-DNA-results.png",
-         height = 5, width = 5, dpi = 300)
+         height = 2, width = 7, dpi = 300)
 ```

@@ -25,13 +25,12 @@ ggplot()+
   geom_rect(data = GTEx_box_dat$numpatkey, mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 1, fill=type), inherit.aes = F,show.legend = F, alpha = 0.3)+
   geom_boxplot(data = GTEx_box_dat$GTEx_plot, aes(x = as.factor(patnum), y = relative_abundance, fill = cell_type), inherit.aes = F, show.legend = T, outlier.size = 0.3)+
   scale_x_discrete(breaks = unique(GTEx_box_dat$numpatkey$patnum), labels = unique(GTEx_box_dat$numpatkey$Tissue))+
-  theme(axis.text.x = element_text(size=10, angle=0))+
-  theme_bw()+
+  theme_bw(base_size = 10) +
   scale_fill_manual(values=c("tomato","gold"), breaks = c("Blood Neutrophil","VAT Neutrophil"), name = "Neutrophil Type")+
   xlab("Tissue")+
   ylab("Relative Abundance")+
   coord_flip()
-  ggsave("../../figures/GTEx_VAT.png", height = 8, width =6)
+  ggsave("../../figures/GTEx_VAT.png", height = 4, width = 5)
   
   #no underscore...(legend)
   #cap the legend title
