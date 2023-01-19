@@ -56,7 +56,7 @@ taxcounts.nocontam.phyl %>%
   scale_fill_manual(breaks = phyls, values = use.palette, name = "Phylum") + 
   labs(x = "", y = "") +
   theme_bw() +
-  theme(axis.text.x = element_blank()) +
+  theme(axis.text.x = element_blank()) 
   ggsave("../../figures/stacked-bar_phyla_DNA-ordered_nocontam.pdf",
          height = 4,
          width = 6) +

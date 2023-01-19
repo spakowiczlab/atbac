@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r}
-dep.files <- list.files("R", full.names = T)
++dep.files <- list.files("R", full.names = T)
 lapply(dep.files, function(x) source(x))
 source("COAD_ra_path.R")
 ```
