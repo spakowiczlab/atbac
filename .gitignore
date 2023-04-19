@@ -40,3 +40,6 @@ ra_COAD.csv
 
 # Zymo folder with long file names
 zr8258.16S_220923.zymo
+
+# Mac files
+.DS_Store
