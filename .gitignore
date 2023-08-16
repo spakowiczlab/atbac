@@ -43,3 +43,6 @@ zr8258.16S_220923.zymo
 
 # Mac files
 .DS_Store
+
+# COAD_RA location
+COAD_ra.json
