@@ -12,6 +12,7 @@ library(ggplot2)
 library(ggfortify)
 library(ggforce)
 library(dplyr)
+library(ggExtra)
 ```
 
 
@@ -25,10 +26,11 @@ loadd(pca.bldvat.exprs)
 
 ```{r}
 pca <- 
-  pca.bldvat.exprs %>%
+  pca.bldvat.exprs$plotdat %>%
   mutate(combcat = gsub("\\.", ", ", combcat),
          combcat = gsub("Blood", "PBN", combcat),
          combcat = gsub("VAT", "VATN", combcat))
+pca.vars <- summary(pca.bldvat.exprs$pca)$importance[2,]
 
 p1<- ggplot(pca, aes(x = PC1, y = PC2)) +
   geom_point(aes(color = combcat), alpha = .5, show.legend = TRUE) +
@@ -38,16 +40,19 @@ p1<- ggplot(pca, aes(x = PC1, y = PC2)) +
                  expand = 0,
                  radius = 0,
                  show.legend = FALSE) +
+  labs(x = paste0("PC1(", pca.vars[1]*100, "%)"),
+       y = paste0("PC2(", pca.vars[2]*100, "%)"))+
+  scale_color_brewer(palette="Dark2") +
+  scale_fill_brewer(palette="Dark2") +
   theme_bw() +
   theme(axis.text = element_blank(), axis.ticks = element_blank(),
         legend.text = element_text(size = 10),
         legend.title = element_blank(),
-        axis.title = element_text(size = 10)) +
-  scale_color_brewer(palette="Dark2") +
-  scale_fill_brewer(palette="Dark2") +
-  theme(legend.position = c(0.7, 0.7),
+        axis.title = element_text(size = 10),
+        legend.position = c(0.7, 0.7),
         legend.box.background = element_rect(color = "black"))
-  ggsave("../../figures/pca_vat-obesity_no-inset.png",
+ggMarginal(p1, groupColour = TRUE, groupFill = TRUE)
+ggsave("../../figures/pca_vat-obesity_no-inset.png",
          height = 3, width = 4.5)
 
 # p2 <- ggplot(pca, aes(x = PC1, y = PC2, color = combcat, fill = combcat, alpha = .5)) +
@@ -121,27 +126,51 @@ GenePath.meta %>%
 ```{r}
 # dodge <- position_dodge(width = 0.4)
 
+pathset1 <- c("Inflammation","Bactericidal Activity/LPS induced genes", "Chemotaxis")
 
 GenePath.meta %>%
   drop_na(counts) %>%
+  filter(Role %in% pathset1) %>%
   mutate(Role = gsub("(.*)/LPS induced genes", "\\1", Role),
          Role = gsub("ROS production", "ROS", Role),
          Role = gsub("Inhibition of Apoptosis", "Apoptosis", Role)) %>%
   mutate(Role = fct_relevel(Role, "Inflammation")) %>%
   ggplot(aes(x = Gene, y = log(counts))) +
   # geom_violin(aes(fill = source), position = dodge) +
-  geom_jitter(alpha = 0.5, aes(color = source), show.legend = TRUE)+
-  geom_boxplot(aes(fill = source), #position = dodge, 
-               show.legend = FALSE) + #width = 0.2,
+  geom_point(alpha = 0.5, aes(color = source), show.legend = FALSE,
+             position = position_dodge(width = .2))+
+  geom_boxplot(aes(fill = source),
+               show.legend = FALSE) +
   facet_grid(cols = vars(Role), scales = "free", space = "free") +
-    labs(x = "", y = "Expression") +
+  labs(x = "", y = "Expression") +
   theme_bw(base_size = 12) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_color_brewer(palette="Dark2") +
   scale_fill_brewer(palette="Dark2") 
-  ggsave("../../figures/pathway-genes_boxplot.svg", 
-         height = 4, width = 18)
+ggsave("../../figures/pathway-genes_boxplot_1.svg", 
+       height = 2, width = 4)
 
+GenePath.meta %>%
+  drop_na(counts) %>%
+  filter(!Role %in% pathset1) %>%
+  mutate(Role = gsub("(.*)/LPS induced genes", "\\1", Role),
+         Role = gsub("ROS production", "ROS", Role),
+         Role = gsub("Inhibition of Apoptosis", "Apoptosis", Role)) %>%
+  mutate(Role = fct_relevel(Role, "Inflammation")) %>%
+  ggplot(aes(x = Gene, y = log(counts))) +
+  # geom_violin(aes(fill = source), position = dodge) +
+  geom_point(alpha = 0.5, aes(color = source), show.legend = FALSE,
+             position = position_dodge(width = .2))+
+  geom_boxplot(aes(fill = source),
+               show.legend = FALSE) +
+  facet_grid(cols = vars(Role), scales = "free", space = "free") +
+  labs(x = "", y = "Expression") +
+  theme_bw(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_brewer(palette="Dark2") +
+  scale_fill_brewer(palette="Dark2") 
+ggsave("../../figures/pathway-genes_boxplot_2.svg", 
+       height = 2, width = 4)
 ```
 
 

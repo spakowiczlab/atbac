@@ -14,7 +14,7 @@ library(ggrepel)
 library(RColorBrewer)
 library(viridis)
 
-library(groundhog)
+# library(groundhog)
 # groundhog.library("UpSetR", "2018-07-27")
 ```
 
@@ -187,7 +187,7 @@ nmds.neuts.samples %>%
   scale_alpha_manual(breaks = c("gene", "sample"), values = c(0.2, 1), guide = FALSE)+
   theme_bw() +
   theme(axis.text = element_blank(),
-        axis.ticks = element_blank()) +
+        axis.ticks = element_blank()) 
   ggsave("../../figures/nmds_neutrophil-state_counts.pdf",
          height = 5, width = 5)
 ```

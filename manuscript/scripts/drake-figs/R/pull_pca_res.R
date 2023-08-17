@@ -27,5 +27,7 @@ pull_pca_res <- function(exprs, meta){
     mutate(sample = meta$sample) %>%
     left_join(meta)
   
-  return(datpoints)
+  output <- list(datpoints, x)
+  names(output) <- c("plotdat", "pca")
+  return(output)
 }
