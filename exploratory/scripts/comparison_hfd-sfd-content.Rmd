@@ -1,0 +1,61 @@
+---
+title: "compare-diets"
+output: html_document
+date: "2023-09-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+
+These numbers are notes on fat type breakdowns for lard and soybean oil from Dan, Wikipedia
+
+fatty acid profile of lard is B37% saturated (sFA), 46% monounsaturated (MUFAs), and 17% polyunsaturated (PUFAs) (Note 6). Lard has particularly high amounts of palmitic, steric and oleic acid ( Table 3).
+
+https://en.wikipedia.org/wiki/Soybean_oil
+
+# Define data
+
+Numbers are from Dan's diet comparison spreadsheet
+```{r}
+soy.perc <- 3.23
+lard.perc <- 31.66
+
+hfd <- as.data.frame(cbind(carb = 25,
+                           protein = 26.2,
+                           fat.sat = (.37 * lard.perc) + (.156 & soy.perc),
+                           fat.unsat =(.46 * lard.perc) + (.228 * soy.perc),
+                           fat.poly = (.17 * lard.perc) + (.577 * soy.perc),
+                           fiber = 6.5,
+                           diet = "HFD"))
+
+std.diet <- as.data.frame(cbind(carb = 44.3,
+                           protein = 19.1,
+                           fat.sat = .8,
+                           fat.unsat =1.3,
+                           fat.poly = 2.9,
+                           fiber = 5.8,
+                           diet = "SFD"))
+```
+
+# Format for plot
+
+```{r}
+plotdat <- bind_rows(std.diet, hfd) %>%
+  pivot_longer(-diet, names_to = "nutrient", values_to = "Weight.percent") %>%
+  mutate(Weight.percent = as.numeric(Weight.percent))
+  
+ggplot(plotdat,aes(x = nutrient, y = Weight.percent, fill = diet)) +
+  geom_col(position = "dodge") +
+  scale_fill_brewer(palette = "Dark2", name = "Diet") +
+  labs(x = "Nutrient", y = "% weight") +
+  scale_x_discrete(breaks = c("carb", "fat.poly", "fat.sat", "fat.unsat", "fiber", "protein"),
+                   labels = c("Carbohydrates", "Fat\n(polyunsaturated)", "Fat\n(saturated)", "Fat\n(monounsaturated)",
+                   "Fiber", "Protein")) +
+  theme_bw()
+
+ggsave("../figures/barplot_HFD-SFD.png")
+```
