@@ -11,11 +11,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readxl)
 library(tmesig)
 library(tidyverse)
-library(ggsignif)
 ```
 
 ```{r}
-expr <- read_excel("../manuscript/data/from-alecia/ampliseq_whole_transcriptome_366_counts_bcma.xls")
+expr <- read_excel("../manuscript/data/from-alecia/ampliseq_whole_transcriptome_366_rpm_bcma.xls")
 key <- read_excel("../manuscript/data/from-alecia/ampliseq_whole_transcriptome_366_summary.xls")
 ```
 
@@ -62,10 +61,19 @@ ggsave("../figures/MHCIIexpression_boxplot.png", dev = "png", width = 3, height 
 
 t-test
 ```{r}
-z <- z %>%
-   dplyr::filter(neutrophil != "other")
+key <- key %>%
+  select(`Barcode ID`, `Sample Name`) %>%
+  mutate(samp = substr(`Sample Name`, 0, 4)) %>%
+  select(-`Sample Name`) %>%
+  rename(sample = `Barcode ID`)
 
-t.test(avg_z_score ~ neutrophil, data = z)
+stat.test <- z %>%
+  dplyr::filter(neutrophil != "other") %>%
+  left_join(key) %>%
+  select(-sample) %>%
+  spread(neutrophil, avg_z_score)
+
+t.test(stat.test$VAT, stat.test$PB, paired = TRUE)
 ```
 
 ```{r}
