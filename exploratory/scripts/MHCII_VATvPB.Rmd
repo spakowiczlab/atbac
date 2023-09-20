@@ -1,0 +1,77 @@
+---
+title: "Analysis of MHCII expression in VAT neutrophils"
+author: "Caroline Wheeler"
+date: "2023-09-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readxl)
+library(tmesig)
+library(tidyverse)
+library(ggsignif)
+```
+
+```{r}
+expr <- read_excel("../manuscript/data/from-alecia/ampliseq_whole_transcriptome_366_counts_bcma.xls")
+key <- read_excel("../manuscript/data/from-alecia/ampliseq_whole_transcriptome_366_summary.xls")
+```
+
+check tmesig signature addition 
+```{r}
+genes <- tmesig::geneEntries("MHC_II_Hsueh")
+genes
+```
+
+prep data
+```{r}
+vat.samps <- key %>% 
+  dplyr::filter(grepl('Vneut', `Sample Name`))
+pb.samps <- key %>%
+  dplyr::filter(grepl('Bldneut', `Sample Name`))
+
+# genes as columns, samples as rows 
+expr <- expr %>%
+  dplyr::select(-Target) %>%
+  dplyr::rename("Gene.Symbol" = Gene)
+```
+
+calc sig score
+```{r}
+z <- tmesig::calculateAvgZScore(expr, genes) %>%
+  dplyr::mutate(neutrophil = ifelse(sample %in% vat.samps$`Barcode ID`, "VAT",
+                             ifelse(sample %in% pb.samps$`Barcode ID`, "PB", "other")))
+```
+
+boxplot
+```{r}
+z %>%
+  dplyr::filter(neutrophil != "other") %>%
+  ggplot(aes(x = neutrophil, y = avg_z_score, fill = neutrophil)) +
+  geom_boxplot() +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette="Dark2") +
+  ylab("MHCII_Hsueh Score") +
+  xlab("Neutrophil") 
+
+ggsave("../figures/MHCIIexpression_boxplot.png", dev = "png", width = 3, height = 3)
+```
+
+t-test
+```{r}
+z <- z %>%
+   dplyr::filter(neutrophil != "other")
+
+t.test(avg_z_score ~ neutrophil, data = z)
+```
+
+```{r}
+stat.test <- z %>%
+  t_test(avg_z_score ~ neutrophil) %>%
+  add_significance()
+stat.test
+```
+
