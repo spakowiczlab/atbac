@@ -1,0 +1,341 @@
+---
+title: "modelling Obese v Lean Zymo 2023/9"
+author: "Rebecca Hoyd"
+date: "9/27/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(glmm)
+library(broom)
+library(rlist)
+library(ggrepel)
+library(RColorBrewer)
+```
+
+# Load data
+
+```{r}
+tax <- read.table("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/zr13065.16S_230916.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_tax_assignments.txt", stringsAsFactors = F, header = F, sep = "\t")
+seqtab <- read.csv("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/zr13065.16S_230916.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_Abundance_Table.csv")
+```
+
+# Functions
+
+```{r}
+exoRAtowide <- function(data, taxlev){
+  tmp <- data
+  tmp$Taxa <- tmp[[taxlev]]
+  tmp.wide<- tmp %>%
+    dplyr::filter(!is.na(Taxa)) %>%
+    group_by(sample, Taxa) %>%
+    summarise(ra = sum(relabun, na.rm = T)) %>%
+    spread(key = "Taxa", value = "ra")
+  
+  tmp.wide[is.na(tmp.wide)] <- 0
+  return(tmp.wide)
+}
+
+exoToDF <- function(taxalevels = c("kingdom", "phylum", "class", 
+                                    "order", "family", "genus", "species"), 
+                     data){
+  w.ls <- lapply(taxalevels, function(x) exoRAtowide(data, x))
+  w.df <- reduce(w.ls, function(x,y) left_join(x,y)) 
+  return(w.df)
+}
+```
+
+```{r logistic regression functions}
+capture.models.univ.former <- function(outcome, lfun, mics, modin){
+  mods.list <- lapply(mics, function(x)  try({glm(as.formula(paste0(outcome, " ~ `", x,"`")), family = lfun, data = modin) %>% tidy()}))
+  mods.list.clean <- list.clean(mods.list, function(x) is.null(x))
+  mods.df <- bind_rows(mods.list.clean) %>%
+    filter(term != "(Intercept)")
+  return(mods.df)
+}
+
+
+univ.model.format <- function(set1) {
+  modelin <- set1 %>%
+    left_join(relabun.w)
+  
+  set1.res <- capture.models.univ.former("binom.ind", "binomial", microbes, modelin)
+  return(set1.res)
+}
+```
+
+```{r calculate l2fc}
+calculateL2FC <- function(set1){
+  fcs <- set1 %>%
+    select(sample, binom.ind) %>%
+    left_join(relabun.w) %>%
+    pivot_longer(-c("sample", "binom.ind"), names_to = "term", values_to = "relabun") %>%
+    group_by(binom.ind, term) %>%
+    summarise(gmean = mean(relabun)) %>%
+    mutate(binom.ind = paste0("b", binom.ind)) %>%
+    pivot_wider(names_from = binom.ind, values_from = gmean) %>%
+    mutate(log2fc = log(b1/b0, base = 2)) %>%
+    select(term, log2fc)
+  
+  return(fcs)
+}
+```
+
+```{r}
+quickVolPlot <- function(pvals, fcs){
+  volin <- pvals %>%
+    drop_na(p.value) %>%
+    left_join(fcs) %>%
+    mutate(colind = ifelse(p.value < 0.05, str_sub(term, 1,1),NA),
+           labtext = ifelse(p.value < 0.05, term,NA))
+  
+  taxacols <- brewer.pal(7,"Set1")
+  names(taxacols) <- c("k", "p", "c", "o", "f", "g", "s")
+  
+  volin %>%
+    ggplot(aes(x = log2fc, y = -log(p.value), label = labtext)) +
+    geom_point(aes(color = colind)) +
+    geom_text_repel() +
+    geom_hline(yintercept = -log(0.05), lty = 2) +
+    geom_vline(xintercept = 0, lty = 2) +
+    scale_color_manual(values = taxacols, name = "Taxonomic\nlevel") +
+    theme_bw()
+}
+```
+
+# Formatting
+
+```{r wide relative abundances}
+tax.form <- tax %>%
+  select(V1, V2) %>%
+  separate(V2, into = c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = ";") %>%
+  mutate(phylum = ifelse(phylum == "p__NA", paste0("p__unclassified-", kingdom), phylum),
+         class = ifelse(class == "c__NA", paste0("c__unclassified-", gsub("p__unclassified-", "", phylum)), class),
+         order = ifelse(order == "o__NA", paste0("o__unclassified-", gsub("c__unclassified-", "", class)), order),
+         family = ifelse(family == "f__NA", paste0("f__unclassified-", gsub("o__unclassified-", "", order)), family),
+         genus = ifelse(genus == "g__NA", paste0("g__unclassified-", gsub("f__unclassified-", "", family)), genus),
+         species = ifelse(species == "s__NA", paste0("s__unclassified-", gsub("g__unclassified-", "", genus)), species))
+
+
+seqtab.long <- seqtab %>%
+  pivot_longer(-seqs, names_to = "V1", values_to = "counts") %>%
+  mutate(samptot = sum(counts), .by = seqs) %>%
+  mutate(relabun = counts/samptot) %>%
+  left_join(tax.form) %>%
+  drop_na() %>%
+  select(-samptot, -V1, -counts) %>%
+  rename("sample" = "seqs")
+
+relabun.w <- exoToDF(data = seqtab.long)
+
+microbes <- colnames(relabun.w)[-1]
+```
+
+```{r sample info}
+metadata <- relabun.w %>%
+  select(sample) %>%
+  # Pre-format the combined infor
+  mutate(sample.form = gsub("Week\\.", "Week", 
+                            gsub("VATO", "VAT.O", 
+                                 gsub("\\.$","",
+                                      gsub("\\.\\.",".", 
+                                           gsub("long\\.","",
+                                                gsub("Ly6G\\.","",
+                                                     gsub("End\\.","",
+                                                          gsub("Pellet\\.","",
+                                                               gsub("T2..T6821","T6821(T2)",sample))))))))),
+         sample.form = ifelse(grepl("Pellet", sample), paste0("Pellet.", sample.form), sample.form)
+  ) %>%
+  separate(sample.form,remove = F,
+           into = c("tissue", "bmi.status", "space", "timepoint", "diet", "mouse", "patient", "patient.sex"), sep = "\\.") %>%
+  # Fix pellet issues
+  mutate(patient.sex = ifelse(tissue == "Pellet", patient, patient.sex),
+         patient = ifelse(tissue == "Pellet",mouse, patient),
+         mouse = ifelse(tissue == "Pellet", NA, mouse)) %>%
+  # Fix obese, lean gavage
+  mutate(gavage = grepl("slurry", sample),
+         bmi.status = ifelse(gavage == T, tissue, bmi.status),
+         tissue = ifelse(gavage == F, tissue, NA),
+         patient.sex = ifelse(gavage == T, diet, patient.sex),
+         patient = ifelse(gavage ==T, timepoint, patient),
+         diet = ifelse(gavage == F, diet, NA),
+         timepoint = ifelse(gavage == F, timepoint, NA)) %>%
+  # Fix saline gavages
+  mutate(gavage = gavage == T | tissue == "Saline",
+         bmi.status = gsub("\\d", "Saline", bmi.status),
+         tissue = ifelse(tissue == "Saline", NA, tissue)) %>%
+  # Misc indicators
+  mutate(Ly6G = grepl("Ly6G", sample),
+         timepoint = gsub("Week1s", "Week1", timepoint),
+         long.exp = grepl("long", sample)) %>%
+# Fix patient IDs with infor from Dharti
+  mutate(patient = ifelse(long.exp == T & bmi.status == "Obese", "T6821", patient),
+         patient= ifelse(long.exp == F & bmi.status == "Obese" & tissue != "Pellet" & is.na(patient), "T6824", patient))
+```
+
+# Analyses
+
+## Model short experiments
+
+```{r, message=FALSE,warning=FALSE}
+sampset.OvL.short.p1 <- metadata %>%
+  filter(long.exp == F & gavage == F &
+           tissue == "VAT" &
+           (bmi.status == "Lean" | patient == "T6820")) %>%
+  mutate(binom.ind = ifelse(bmi.status == "Lean", 0,1))
+
+mres.OvL.short.p1 <- univ.model.format(sampset.OvL.short.p1)
+fc.OvL.short.p1 <- calculateL2FC(sampset.OvL.short.p1)
+
+quickVolPlot(mres.OvL.short.p1, fc.OvL.short.p1)
+```
+
+```{r, message=FALSE,warning=FALSE}
+sampset.OvL.short.p2 <- metadata %>%
+  filter(long.exp == F & gavage == F &
+           tissue == "VAT" &
+           (bmi.status == "Lean" | patient == "T6821")|
+           (long.exp == T & gavage == F & timepoint == "Week1" & bmi.status == "Obese" & Ly6G == F & diet == "HFD")) %>%
+  mutate(binom.ind = ifelse(bmi.status == "Lean", 0,1))
+
+mres.OvL.short.p2 <- univ.model.format(sampset.OvL.short.p2)
+fc.OvL.short.p2 <- calculateL2FC(sampset.OvL.short.p2)
+
+quickVolPlot(mres.OvL.short.p2, fc.OvL.short.p2)
+```
+
+```{r, message=FALSE,warning=FALSE}
+sampset.OvL.short.p3 <- metadata %>%
+  filter(long.exp == F & gavage == F &
+           tissue == "VAT" &
+           (bmi.status == "Lean" | patient == "T6824")) %>%
+  mutate(binom.ind = ifelse(bmi.status == "Lean", 0,1))
+
+mres.OvL.short.p3 <- univ.model.format(sampset.OvL.short.p3)
+fc.OvL.short.p3 <- calculateL2FC(sampset.OvL.short.p3)
+
+quickVolPlot(mres.OvL.short.p3, fc.OvL.short.p3)
+```
+
+
+```{r, message=FALSE,warning=FALSE}
+sampset.OvL.short <- metadata %>%
+  filter((long.exp == F & gavage == F &
+           tissue == "VAT" &
+           bmi.status != "Saline") |
+           (long.exp == T & gavage == F & timepoint == "Week1" & bmi.status == "Obese" & Ly6G == F & diet == "HFD")) %>%
+  mutate(binom.ind = ifelse(bmi.status == "Lean", 0,1))
+
+mres.OvL.short <- univ.model.format(sampset.OvL.short)
+fc.OvL.short <- calculateL2FC(sampset.OvL.short)
+
+quickVolPlot(mres.OvL.short, fc.OvL.short)
+```
+
+## Long experiments - saline
+
+```{r, message=FALSE,warning=FALSE}
+sampset.OvS.w1 <- metadata %>%
+  filter(long.exp == T & gavage == F &
+           tissue == "VAT" & Ly6G == F &
+           timepoint == "Week1" & diet == "HFD") %>%
+  mutate(binom.ind = ifelse(bmi.status == "Saline", 0,1))
+
+mres.OvS.w1 <- univ.model.format(sampset.OvS.w1)
+fc.OvS.w1 <- calculateL2FC(sampset.OvS.w1)
+
+quickVolPlot(mres.OvS.w1, fc.OvS.w1)
+```
+
+```{r, message=FALSE,warning=FALSE}
+sampset.OvS.w3 <- metadata %>%
+  filter(long.exp == T & gavage == F &
+           tissue == "VAT" & Ly6G == F &
+           timepoint == "Week3" & diet == "HFD") %>%
+  mutate(binom.ind = ifelse(bmi.status == "Saline", 0,1))
+
+mres.OvS.w3 <- univ.model.format(sampset.OvS.w3)
+fc.OvS.w3 <- calculateL2FC(sampset.OvS.w3)
+
+quickVolPlot(mres.OvS.w3, fc.OvS.w3)
+```
+
+```{r, message=FALSE,warning=FALSE}
+sampset.OvS.w5 <- metadata %>%
+  filter(long.exp == T & gavage == F &
+           tissue == "VAT" & Ly6G == F &
+           timepoint == "Week5" & diet == "HFD") %>%
+  mutate(binom.ind = ifelse(bmi.status == "Saline", 0,1))
+
+mres.OvS.w5 <- univ.model.format(sampset.OvS.w5)
+fc.OvS.w5 <- calculateL2FC(sampset.OvS.w5)
+
+quickVolPlot(mres.OvS.w5, fc.OvS.w5)
+```
+
+## Long experiments - ly6g
+
+```{r, message=FALSE,warning=FALSE}
+sampset.OvLy.w1 <- metadata %>%
+  filter(long.exp == T & gavage == F &
+           tissue == "VAT" & bmi.status == "Obese" &
+           timepoint == "Week1" & diet == "HFD") %>%
+  mutate(binom.ind = ifelse(Ly6G == F, 0,1))
+
+mres.OvLy.w1 <- univ.model.format(sampset.OvLy.w1)
+fc.OvLy.w1 <- calculateL2FC(sampset.OvLy.w1)
+
+quickVolPlot(mres.OvLy.w1, fc.OvLy.w1)
+```
+```{r, message=FALSE,warning=FALSE}
+sampset.OvLy.w3 <- metadata %>%
+  filter(long.exp == T & gavage == F &
+           tissue == "VAT" & bmi.status == "Obese" &
+           timepoint == "Week3" & diet == "HFD") %>%
+  mutate(binom.ind = ifelse(Ly6G == F, 0,1))
+
+mres.OvLy.w3 <- univ.model.format(sampset.OvLy.w3)
+fc.OvLy.w3 <- calculateL2FC(sampset.OvLy.w3)
+
+quickVolPlot(mres.OvLy.w3, fc.OvLy.w3)
+```
+
+```{r, message=FALSE,warning=FALSE}
+sampset.OvLy.w5 <- metadata %>%
+  filter(long.exp == T & gavage == F &
+           tissue == "VAT" & bmi.status == "Obese" &
+           timepoint == "Week5" & diet == "HFD") %>%
+  mutate(binom.ind = ifelse(Ly6G == F, 0,1))
+
+mres.OvLy.w5 <- univ.model.format(sampset.OvLy.w5)
+fc.OvLy.w5 <- calculateL2FC(sampset.OvLy.w5)
+
+quickVolPlot(mres.OvLy.w5, fc.OvLy.w5)
+```
+
+# Summaries
+
+## Short experiments
+
+```{r}
+sig.OvL.p1 <- mres.OvL.short.p1 %>%
+  mutate(patient = "T6820") %>%
+  filter(p.value < 0.05)
+
+sig.OvL.p2 <- mres.OvL.short.p2 %>%
+  mutate(patient = "T6821") %>%
+  filter(p.value < 0.05)
+
+sig.OvL.p3 <- mres.OvL.short.p3 %>%
+  mutate(patient = "T6824") %>%
+  filter(p.value < 0.05)
+
+
+sig.OvL.short <- bind_rows(sig.OvL.p1,sig.OvL.p2,sig.OvL.p3)
+sig.OvL.short
+write.csv(sig.OvL.short, "../data/modelling_significant_OvL-short.csv", row.names = F)
+```
+
