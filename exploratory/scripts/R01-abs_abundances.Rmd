@@ -1,0 +1,93 @@
+---
+title: "Abundances of microbes in VAT and other tissues over time"
+author: "Caroline Wheeler"
+date: "9/27/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+```
+
+read in data
+```{r}
+# samp.info <- readxl::read_xlsx("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/Zymo submission_form_Spakowicz_Hsueh 8_14_23.xlsx", sheet = 2)
+abun <- read.csv("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/zr13065.16S_230916.zymo/00...AllSamples.Bac16Sv34/Sample_Information/absolute.abundance.csv")
+```
+
+clean
+```{r}
+# Rebecca's version 
+metadata <- abun %>%
+  rename(sample = customer_label) %>%
+  # Pre-format the combined infor
+  mutate(sample.form = gsub("Week\\.", "Week", 
+                            gsub("VATO", "VAT.O", 
+                                 gsub("\\.$","",
+                                      gsub("\\.\\.",".", 
+                                           gsub("long\\.","",
+                                                gsub("Ly6G\\.","",
+                                                     gsub("End\\.","",
+                                                          gsub("Pellet\\.","",
+                                                               gsub("T2..T6821","T6821(T2)",sample))))))))),
+         sample.form = ifelse(grepl("Pellet", sample), paste0("Pellet.", sample.form), sample.form)
+  ) %>%
+  separate(sample.form,remove = F,
+           into = c("tissue", "bmi.status", "space", "timepoint", "diet", "mouse", "patient", "patient.sex"), sep = "\\.") %>%
+  # Fix pellet issues
+  mutate(patient.sex = ifelse(tissue == "Pellet", patient, patient.sex),
+         patient = ifelse(tissue == "Pellet",mouse, patient),
+         mouse = ifelse(tissue == "Pellet", NA, mouse)) %>%
+  # Fix obese, lean gavage
+  mutate(gavage = grepl("slurry", sample),
+         bmi.status = ifelse(gavage == T, tissue, bmi.status),
+         tissue = ifelse(gavage == F, tissue, NA),
+         patient.sex = ifelse(gavage == T, diet, patient.sex),
+         patient = ifelse(gavage ==T, timepoint, patient),
+         diet = ifelse(gavage == F, diet, NA),
+         timepoint = ifelse(gavage == F, timepoint, NA),
+         long.exp = grepl("long", sample)) %>%
+  # Fix saline gavages
+  mutate(gavage = gavage == T | tissue == "Saline",
+         bmi.status = gsub("\\d", "Saline", bmi.status),
+         tissue = ifelse(tissue == "Saline", NA, tissue)) %>%
+  # Misc indicators
+  mutate(Ly6G = grepl("Ly6G", sample),
+         timepoint = gsub("Week1s", "Week1", timepoint)) %>%
+  mutate(patient = ifelse(long.exp == T & bmi.status == "Obese", "T6821", patient),
+         patient= ifelse(long.exp == F & bmi.status == "Obese" & tissue != "Pellet" & is.na(patient), "T6824", patient))
+
+# # Caroline start
+# test <- abun %>% 
+#   mutate(customer_label = gsub(".", " ", customer_label, fixed = TRUE)) %>%
+#   mutate(customer_label = gsub("VAT([A-Za-z])", "VAT \\1", customer_label)) %>%
+#   dplyr::filter(grepl('VAT|Lung', customer_label)) 
+#   #separate(customer_label, into = c("location", "gavage", "gavage2", "timepoint", "timepoint2"), remove = F)
+
+metadata <- metadata %>%
+  filter(tissue == "VAT" | tissue == "Lung") %>%
+  mutate(bmi.status = ifelse(Ly6G, paste0(bmi.status, "+Ly6G"), bmi.status)) %>%
+  select(sample_id, tissue, bmi.status, diet, timepoint, genome_copies_per_ul.) 
+```
+
+E.g. faceting by location, color by obese/lean/saline, and shape by diet
+
+visualize
+```{r}
+metadata %>% 
+  ggplot(aes(x = timepoint, y = genome_copies_per_ul., color = bmi.status)) +
+  geom_boxplot() + 
+  scale_color_brewer("Gavage", palette="Dark2") +
+  theme_bw() +
+  ylab("Genome copies per ul.") +
+  xlab("") +
+  facet_grid(cols = vars(tissue), rows = vars(diet)) 
+
+ggsave("../figures/R01_zymo_abs_abundances.png", device = "png", width = 6, height = 4)
+```
+
+
