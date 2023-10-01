@@ -1,0 +1,42 @@
+---
+title: "Single Cell"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(dplyr)
+library(Seurat)
+```
+
+##load data
+```{r}
+scrna <- readRDS("/fs/ess/PAS1695/projects/atbac/data/refquery_final.rds")
+```
+
+##get data from seurat
+```{r} 
+counts <- as.matrix(GetAssayData(object = scrna, slot = "counts")) %>%
+  t() %>%
+  as.data.frame()
+
+cell.type <- FetchData(object = scrna, vars = "Cell_Cluster_level2") %>%
+  as.data.frame() %>%
+  rename("Cell Type" = "Cell_Cluster_level2")
+
+umap <- as.data.frame(Embeddings(object = scrna, reduction = "umap")) 
+```
+
+##bind data frames into one
+```{r}
+scrna.subset <- cbind(counts, cell.type, umap) %>%
+  rownames_to_column(var = "Sample")
+```
+
+##write csv
+```{r}
+saveRDS(scrna.subset, file = "/fs/ess/PAS1695/projects/atbac/data/scrna-seurat-subset.RDS")
+```
+
