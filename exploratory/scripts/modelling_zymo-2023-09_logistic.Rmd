@@ -316,6 +316,21 @@ fc.OvLy.w5 <- calculateL2FC(sampset.OvLy.w5)
 quickVolPlot(mres.OvLy.w5, fc.OvLy.w5)
 ```
 
+## Pellets
+
+```{r}
+sampset.pellets <- metadata %>%
+  filter(tissue == "Pellet" & diet == "HFD" & timepoint == "Week1" & bmi.status != "Saline" & Ly6G == F) %>%
+  mutate(binom.ind = ifelse(bmi.status == "Lean", 0,1))
+
+mres.pellets <- univ.model.format(sampset.pellets)
+fc.pellets <- calculateL2FC(sampset.pellets)
+
+quickVolPlot(mres.pellets, fc.pellets)
+```
+
+
+
 # Summaries
 
 ## Short experiments
@@ -339,3 +354,42 @@ sig.OvL.short
 write.csv(sig.OvL.short, "../data/modelling_significant_OvL-short.csv", row.names = F)
 ```
 
+# Check presence of significant microbes in stool, gavage
+
+```{r}
+sig.OvL.short <- read.csv("../data/modelling_significant_OvL-short.csv")
+
+likelysamps <- metadata %>%
+  filter(bmi.status == "Obese" & (tissue == "Pellet" | gavage == T))
+joinmics <- sig.OvL.short %>%
+  select(term,patient) %>%
+  inner_join(likelysamps) %>% 
+  select(sample, term, patient) %>%
+  mutate(term = str_remove_all(term, "`"))
+
+
+relabun.long.sig <- relabun.w %>%
+  pivot_longer(-sample, names_to = "term", values_to = "relabun") %>%
+  inner_join(joinmics)
+```
+
+```{r}
+relabun.long.sig %>%
+  mutate(prev = relabun > 0) %>%
+  ggplot(aes(x = sample, y = term, fill = prev)) +
+  facet_wrap(vars(patient), scales = "free") +
+  geom_tile() +
+  theme_bw()
+```
+
+```{r}
+relabun.w %>%
+  select(sample, str_remove_all(sig.OvL.short$term, "`"),  "g__Pseudomonas" , "g__Sphingomonas") %>%
+  pivot_longer(-sample, names_to ="microbe", values_to = "relabun") %>%
+  left_join(metadata) %>%
+  mutate(tissue = replace_na(tissue, "Gavage.slurry")) %>%
+  mutate(prev = relabun > 0) %>%
+  group_by(microbe, tissue) %>%
+  summarize(prev = mean(prev)) %>%
+  pivot_wider(names_from = "tissue", values_from = "prev")
+```
