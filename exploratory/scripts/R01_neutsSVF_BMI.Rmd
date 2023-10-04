@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(ggplot2)
 library(readxl)
+library(ggpubr)
 ```
 
 read in data
@@ -33,11 +34,12 @@ df <- df %>%
 df %>%
   ggplot(aes(x = BMI, y = fecal)) +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE) +
+  geom_smooth(method = "lm") +
   theme(base.size = 9) + 
   theme_bw() +
   xlab("Donor BMI") +
-  ylab("% Neutrophils in SVF") 
+  ylab("% Neutrophils in SVF") +
+  stat_cor(method = "pearson", label.x = 20, label.y = 1.4)
 
 ggsave("../figures/R01-SVFneutsBMI_scatterplot.png", width = 3, height = 3)
 ```
