@@ -1,0 +1,47 @@
+---
+title: "Untitled"
+author: "Caroline Wheeler"
+date: "2023-10-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(ggpubr)
+```
+
+read in data
+```{r}
+df <- readxl::read_xlsx("../data/Fecal donor BMI vs recipient neuts.xlsx")
+```
+
+fix excel sheet 
+```{r}
+df <- df[-1,]
+
+df <- df %>%
+  dplyr::rename("saline" = `% VAT neutrophils`,
+                "fecal" = `...6`) %>%
+  tidyr::fill(BMI) %>%
+  mutate(fecal = as.double(fecal))
+```
+
+```{r}
+df %>%
+  ggplot(aes(x = BMI, y = fecal)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme(base.size = 9) + 
+  theme_bw() +
+  xlab("Donor BMI") +
+  ylab("% Neutrophils in SVF") +
+  stat_cor(method = "pearson", label.x = 20, label.y = 1.4)
+
+ggsave("../figures/R01-SVFneutsBMI_scatterplot.png", width = 3, height = 3)
+```
+
+

@@ -1,0 +1,141 @@
+---
+title: "remake surv plot"
+author: "Caroline Wheeler"
+date: "2023-10-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readr)
+library(tibble)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(survminer)
+library(survival)
+library(broom)
+```
+
+```{r}
+#load files to match id
+TCGA_id_link <- read_csv("../data/TCGA-link-bam-and-expression-files.csv")
+TCGA.COAD_id <- read.delim("../data/gdc_manifest.2020-05-28.txt")
+TCGA.READ_id <- read.delim("../data/gdc_manifest.2020-05-28 _READ.txt")
+## add cancer type to the data frame
+TCGA.COAD_id <- data.frame(TCGA.COAD_id$id, rep("COAD", length(TCGA.COAD_id$id)))
+TCGA.READ_id <- data.frame(TCGA.READ_id$id, rep("READ", length(TCGA.READ_id$id)))
+colnames(TCGA.COAD_id) <- c("file_id.BAM", "Tissue")
+colnames(TCGA.READ_id) <- c("file_id.BAM", "Tissue")
+TCGA_tissue_id <- rbind(TCGA.COAD_id, TCGA.READ_id)
+# load cibersortx file
+TCGA_CUS <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/COAD-READ_cus.csv", header = TRUE)
+TCGA_LM <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/COAD-READ_lm.csv", header = TRUE)
+BRCA_C <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/BRCA_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "SARC")
+SARC_C <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/SARC_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "SARC")
+LUSC_C <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/LUSC_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "LUSC")
+LUAD_C <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/LUAD_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "LUAD")
+BRCA_L <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/BRCA_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "SARC")
+SARC_L <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/SARC_LM22.csv", header = TRUE)%>%
+  mutate(Cancer = "SARC")
+LUSC_L <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/LUSC_LM22.csv", header = TRUE)%>%
+  mutate(Cancer = "LUSC")
+LUAD_L <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/LUAD_LM22.csv", header = TRUE)%>%
+  mutate(Cancer = "LUAD")
+KIRC_C <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/KIRC_CUS.csv", header = TRUE)%>%
+  mutate(Cancer = "KIRC")
+KIRC_L <- read.csv("../data/CIBERSORT/CIBERSORTx-deconvolved/KIRC_LM22.csv", header = TRUE)%>%
+  mutate(Cancer = "KIRC")
+
+##combine tissue and deconvolved CUS
+TCGA_tissue_id <- left_join(TCGA_id_link, TCGA_tissue_id)
+colnames(TCGA_tissue_id) <- c("file_id.BAM","Mixture","Cancer")
+TCGA_CUS <- left_join(TCGA_CUS, TCGA_tissue_id)
+TCGA_CUS <- TCGA_CUS %>% select(Cancer, everything())
+
+##combine tissue and deconvolved LM
+TCGA_LM <- left_join(TCGA_LM, TCGA_tissue_id)
+TCGA_LM <- TCGA_LM %>% select(Cancer, everything())
+TCGA_CUS <- bind_rows(TCGA_CUS,SARC_C,LUAD_C,LUSC_C,KIRC_C,BRCA_C)
+TCGA_LM <- bind_rows(TCGA_LM,SARC_L,LUAD_L,LUSC_L,KIRC_L, BRCA_L)
+
+##combine vat and neut
+TCGA_dat <- TCGA_CUS %>%
+  dplyr::select(Mixture, Cancer, V.neutrophil, Blood.neutrophil)
+TCGA_dat <- TCGA_LM %>%
+  dplyr::select(Mixture, Cancer, Neutrophils) %>%
+  left_join(TCGA_dat)%>%
+  rename("VAT_Neut" = "V.neutrophil", "Blood_Neut" = "Neutrophils", "C.B" = "Blood.neutrophil", "Tissue" = "Cancer")
+TCGA_dat <- TCGA_dat %>%
+  mutate(file_name.expression = paste0(Mixture,".FPKM.txt.gz"))
+dat_plot <- TCGA_dat %>% 
+  gather("cell_type", "relative_abundance", 3:5) %>%
+  mutate(Tissue2nd = paste0(Tissue, cell_type))
+
+tiskey <- unique(select(TCGA_dat, Tissue))
+tiskey$sum_VAT <- sapply (1:nrow(tiskey), function(i) sum(TCGA_dat$VAT_Neut[which(tiskey$Tissue[i] == TCGA_dat$Tissue)]))
+tiskey$sum_blood <- sapply (1:nrow(tiskey), function(i) sum(TCGA_dat$Blood_Neut[which(tiskey$Tissue[i] == TCGA_dat$Tissue)]))
+tiskey$type <- tiskey$sum_VAT > tiskey$sum_blood
+colnames(tiskey) <- c("Tissue", "sum_VAT","sum_blood","type")
+
+##combine clinical data
+BRCA_CLI <- read.csv("../data/survival info/BRCA_CLI.csv", header = TRUE)
+LUAD_CLI <- read.csv("../data/survival info/LUAD_CLI.csv", header = TRUE)
+LUSC_CLI <- read.csv("../data/survival info/LUSC_CLI.csv", header = TRUE)
+SARC_CLI <- read.csv("../data/survival info/SARC_CLI.csv", header = TRUE)
+COAD_CLI <- read.csv("../data/survival info/COAD_CLI.csv", header = TRUE)
+READ_CLI <- read.csv("../data/survival info/READ_CLI.csv", header = TRUE)
+KIRC_CLI <- read.csv("../data/survival info/KIRC_CLI.csv", header = TRUE)
+ALL_CLI <- bind_rows(LUAD_CLI,LUSC_CLI,READ_CLI,COAD_CLI,KIRC_CLI,SARC_CLI,BRCA_CLI)%>%
+  select(file_id.BAM, days_to_last_follow_up,days_to_death,vital_status)%>%
+  mutate(vital_status = ifelse(vital_status=="Alive",0,1),
+         days = ifelse(is.na(days_to_death),days_to_last_follow_up,days_to_death))
+
+## combine manifest files
+BRCA_MAN <- read.csv("../data/survival info/BRCA_MAN.csv", header = TRUE)
+LUAD_MAN <- read.csv("../data/survival info/LUAD_MAN.csv", header = TRUE)
+LUSC_MAN <- read.csv("../data/survival info/LUSC_MAN.csv", header = TRUE)
+SARC_MAN <- read.csv("../data/survival info/SARC_MAN.csv", header = TRUE)
+COAD_MAN <- read.csv("../data/survival info/COAD_MAN.csv", header = TRUE)
+READ_MAN <- read.csv("../data/survival info/READ_MAN.csv", header = TRUE)
+KIRC_MAN <- read.csv("../data/survival info/KIRC_MAN.csv", header = TRUE)
+ALL_MAN <- bind_rows(LUAD_MAN,LUSC_MAN,COAD_MAN,KIRC_MAN,SARC_MAN,READ_MAN,BRCA_MAN) %>%
+  select(file_name.expression,file_id.BAM,file_id.expression)%>%
+  rename("Mixture" = "file_id.expression")
+
+SURV_CR <- TCGA_dat %>%
+  filter(Tissue %in% c("COAD","READ"))%>%
+  left_join(ALL_MAN, by = "file_name.expression")%>%
+  left_join(ALL_CLI)%>%
+  select(file_id.BAM,days,vital_status,Tissue,VAT_Neut)
+SURV_REST <- TCGA_dat %>%
+  filter(!Tissue %in% c("COAD","READ"))%>%
+  left_join(ALL_MAN, by = "Mixture")%>%
+  left_join(ALL_CLI)%>%
+  select(file_id.BAM,days,vital_status,Tissue,VAT_Neut)
+SURV_dat <- bind_rows(SURV_CR,SURV_REST)
+
+
+SURV_COAD <- SURV_dat%>%
+  filter(Tissue == "COAD")%>%
+  mutate(VAT_type = ifelse(VAT_Neut > sort(VAT_Neut)[0.9*length(VAT_Neut)],"More VAT","less VAT"))
+
+SP_COAD <- survfit(Surv(days, vital_status) ~ VAT_type, data = SURV_COAD)
+```
+```{r}
+ggsurvplot(SP_COAD,
+          linetype = "strata", # Change line type by groups
+          legend.labs = c("Low VAT Neutrophil Abundance", "High VAT Neutrophil Abundance"),
+          xlab = "Days",
+          base.size = 10
+) 
+
+ggsave("../figures/R01_COAD_surv_Blo.svg", device = "svg", dpi = 400, height = 4, width = 3)
+```
+
