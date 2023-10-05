@@ -1,0 +1,225 @@
+---
+title: "R01_2023-10_spatial-transcriptomics"
+author: "Rebecca Hoyd"
+date: "10/3/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(Seurat)
+library(Matrix)
+library(rjson)
+library(cowplot)
+library(grid)
+library(readbitmap)
+library(Seurat)
+# library(hdf5r)
+library(data.table)
+library(tmesig)
+library(viridis)
+```
+
+# Load data
+
+```{r}
+gene_table <- read.table(file = "/fs/ess/PAS1695/projects/atbac/data/snRNAseq_visium/gene_annotation/gene_table.tsv", sep = "\t", header = T, stringsAsFactors = F )
+```
+
+```{r input table for visium}
+# metadata_selected <- as.data.frame(cbind(sample_id = "S7",
+#                                          novaseq_id = "S47",
+#                                          sample_name = "ADI_2_4",
+#                                          subect_id = "NO137",
+#                                          subject_alias = "Ov.2",
+#                                          tissue_id = "NO137-after",
+#                                          slide_SN = "V19T26-019",
+#                                          date_exp = "2019-11-27",
+#                                          date_seq = "2020-03-02",
+#                                          gender = "female",
+#                                          condition = "overweight",
+#                                          insulin_stim = "1",
+#                                          m_value = 7,
+#                                          bmi = 28.6,
+#                                          age = 45,
+#                                          seu_n = 7))
+# infoTable <- data.frame(samples = "/fs/ess/PAS1695/projects/atbac/data/snRNAseq_visium/S47_trimmed/filtered_feature_bc_matrix.h5",
+#                         spotfiles = "/fs/ess/PAS1695/projects/atbac/data/snRNAseq_visium/S47_trimmed/spatial/tissue_positions_list.csv",
+#                         imgs = "/fs/ess/PAS1695/projects/atbac/data/snRNAseq_visium/S47_trimmed/spatial/tissue_hires_image.png",
+#                         json = "/fs/ess/PAS1695/projects/atbac/data/snRNAseq_visium/S47_trimmed/spatial/scalefactors_json.json",
+#                         metadata_selected, 
+#                         stringsAsFactors = F)
+
+```
+
+## Following tutorial to read data
+
+https://support.10xgenomics.com/spatial-gene-expression/software/pipelines/latest/rkit
+
+```{r}
+sample_names <- c("S47")
+
+image_paths <- c("/fs/ess/PAS1695/projects/atbac/data/snRNAseq_visium/S47_trimmed/spatial/tissue_hires_image.png")
+
+scalefactor_paths <- c("/fs/ess/PAS1695/projects/atbac/data/snRNAseq_visium/S47_trimmed/spatial/scalefactors_json.json")
+
+tissue_paths <- c(spotfiles = "/fs/ess/PAS1695/projects/atbac/data/snRNAseq_visium/S47_trimmed/spatial/tissue_positions_list.csv")
+
+# cluster_paths <- c("/path/to/Sample1/outs/analysis_csv/clustering/graphclust/clusters.csv",
+#                    "/path/to/Sample2/outs/analysis_csv/clustering/graphclust/clusters.csv")
+
+# matrix_paths <- c("/fs/ess/PAS1695/projects/atbac/data/snRNAseq_visium/S47_trimmed/filtered_feature_bc_matrix.h5")
+```
+
+```{r}
+images_cl <- list()
+
+for (i in 1:length(sample_names)) {
+  images_cl[[i]] <- read.bitmap(image_paths[i])
+}
+
+height <- list()
+
+for (i in 1:length(sample_names)) {
+ height[[i]] <-  data.frame(height = nrow(images_cl[[i]]))
+}
+
+height <- bind_rows(height)
+
+width <- list()
+
+for (i in 1:length(sample_names)) {
+ width[[i]] <- data.frame(width = ncol(images_cl[[i]]))
+}
+
+width <- bind_rows(width)
+
+bcs <- read.csv(tissue_paths,col.names=c("barcode","tissue","row","col","imagerow","imagecol"), header = FALSE)
+```
+
+```{r read image positions like this to be able to scale positions to image}
+# bcs <- list()
+# 
+# for (i in 1:length(sample_names)) {
+#    bcs[[i]] <- read.csv(tissue_paths[i],col.names=c("barcode","tissue","row","col","imagerow","imagecol"), header = FALSE)
+#    bcs[[i]]$imagerow <- bcs[[i]]$imagerow * scales[[i]]$tissue_hires_scalef    # scale tissue coordinates for lowres image
+#    bcs[[i]]$imagecol <- bcs[[i]]$imagecol * scales[[i]]$tissue_hires_scalef
+#    bcs[[i]]$tissue <- as.factor(bcs[[i]]$tissue)
+#    bcs[[i]] <- merge(bcs[[i]], clusters[[i]], by.x = "barcode", by.y = "Barcode", all = TRUE)
+#    bcs[[i]]$height <- height$height[i]
+#    bcs[[i]]$width <- width$width[i]
+# }
+# 
+# names(bcs) <- sample_names
+```
+
+```{r}
+loadNoHDF5r <- function(matrix_dir){
+barcode.path <- paste0(matrix_dir, "barcodes.tsv.gz")
+features.path <- paste0(matrix_dir, "features.tsv.gz")
+matrix.path <- paste0(matrix_dir, "matrix.mtx.gz")
+matrix <- t(readMM(file = matrix.path))
+feature.names = read.delim(features.path,
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+barcode.names = read.delim(barcode.path,
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+rownames(matrix) = barcode.names$V1
+colnames(matrix) = feature.names$V2
+
+return(matrix)
+}
+
+matrix <- loadNoHDF5r("/fs/ess/PAS1695/projects/atbac/data/snRNAseq_visium/S47_trimmed/filtered_feature_bc_matrix/")
+```
+
+# Generate cell scores for spots
+
+## make signatures from cell marker
+
+```{r}
+cellmarker <- read.delim("/fs/ess/PAS1695/projects/atbac/data/Human_cell_markers.txt")
+genevec <- matrix@Dimnames[[2]]
+
+gene.trans <- as.data.frame(cbind(Gene.Symbol = genevec)) %>%
+  mutate(gene = row_number()-1)
+
+sample.trans <- as.data.frame(cbind(spot = matrix@Dimnames[[1]])) %>%
+  mutate(sample = row_number()-1)
+```
+
+```{r}
+neutmarkers.df <- cellmarker %>%
+  filter(speciesType == "Human" & cellName == "Neutrophil" & cancerType == "Normal" & grepl("blood", tissueType, ignore.case = T))
+neutmarkers.rough <- str_remove_all(unique(str_split(paste(neutmarkers.df$geneSymbol, collapse = ","), ",")[[1]]), " |\\[|\\]")
+neut.hla <- genevec[grepl("HLA.DR", genevec)]
+
+neutmarkers <- c(neutmarkers.rough, neut.hla)
+```
+
+```{r}
+endothelial.df <- cellmarker %>%
+  filter(speciesType == "Human" & cellName == "Endothelial cell" & cancerType == "Normal" & grepl("adipose", tissueType, ignore.case = T))
+endothelial.rough <- str_remove_all(unique(str_split(paste(endothelial.df$geneSymbol, collapse = ","), ",")[[1]]), " |\\[|\\]")
+endo.icam <- genevec[grepl("^ICAM", genevec)]
+
+endothelial <- c(endothelial.rough, endo.icam)
+```
+
+## Grabbing tmessig input matrices
+
+```{r}
+neut.genenums <- lapply(neutmarkers, function(x) which(x == genevec))
+descells <- which(matrix@j %in% neut.genenums)
+neut.forcalc.df <- as.data.frame(cbind(x = matrix@x[descells],
+                                       sample = matrix@i[descells],
+                                       gene = matrix@j[descells])) %>%
+  left_join(sample.trans) %>%
+  left_join(gene.trans) %>%
+  select(-sample, -gene) %>%
+  pivot_wider(names_from = "spot", values_from = "x", values_fill = 0)
+```
+```{r}
+endothelial.genenums <- lapply(endothelial, function(x) which(x == genevec))
+descells <- which(matrix@j %in% endothelial.genenums)
+endothelial.forcalc.df <- as.data.frame(cbind(x = matrix@x[descells],
+                                       sample = matrix@i[descells],
+                                       gene = matrix@j[descells])) %>%
+  left_join(sample.trans) %>%
+  left_join(gene.trans) %>%
+  select(-sample, -gene) %>%
+  pivot_wider(names_from = "spot", values_from = "x", values_fill = 0)
+```
+
+## tmesig
+
+```{r}
+neutsig <- calculateAvgZScore(neut.forcalc.df, neutmarkers) %>%
+  rename("Neutrophil" = "avg_z_score")
+endosig <- calculateAvgZScore(endothelial.forcalc.df, endothelial) %>%
+  rename("Endothelial" = "avg_z_score")
+```
+
+# Plot spots with scores
+
+```{r}
+plotdf <- neutsig %>%
+  full_join(endosig) %>%
+  rename("barcode" = "sample") %>%
+  left_join(bcs)
+
+saveRDS(plotdf, "../data/spatial-transcriptomics_neutsig.RDS")
+```
+
+```{r}
+plotdf <- readRDS("../data/spatial-transcriptomics_neutsig.RDS")
+plotdf %>%
+  ggplot(aes(x = col, y = -row, color = Neutrophil)) +
+  geom_point() +
+  scale_color_viridis_c() +
+  theme_void()
+ggsave("../figures/points_spatialtrans.png")
+```
