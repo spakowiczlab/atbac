@@ -1,0 +1,221 @@
+---
+title: "C.2.5 VAT neutrophils have a distinct activation state"
+author: "Caroline Wheeler"
+date: "2023-10-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tmesig)
+library(tidyverse)
+```
+
+```{r}
+  bldvat.meta <- readRDS("../data/ncbi_processed/meta_bldvat.RDS")
+  sepsis.meta <- readRDS("../data/ncbi_processed/meta_sepsis.RDS")
+  tb.meta <- readRDS("../data/ncbi_processed/meta_tb.RDS")
+  exercise.meta <- readRDS("../data/ncbi_processed/meta_exercise.RDS")
+  endotox.meta <- readRDS("../data/ncbi_processed/meta_endotox.RDS")
+  syno.meta <- readRDS("../data/ncbi_processed/meta_syno.RDS")
+  lcanc.meta <- read.csv("../data/ncbi_processed/meta_lung-canc.csv", stringsAsFactors = F)
+  bldvat.meta <- bldvat.meta %>%
+    mutate(sample = as.character(sample),
+           source = ifelse(source == "VAT", "treatment", "control")) %>%
+    arrange(sample)
+  sepsis.meta <- sepsis.meta %>%
+    mutate(source = ifelse(`sample_type:ch1` == "Patient", "treatment", "control")) %>%
+    arrange(geo_accession) %>%
+    mutate(sample = geo_accession)
+  tb.meta <- tb.meta %>%
+    filter(grepl("Neut", title)) %>%
+    mutate(source = ifelse(grepl("Control", characteristics_ch1.3), "control", "treatment")) %>%
+    arrange(geo_accession) %>%
+    mutate(sample = geo_accession)
+  airspace.meta <- endotox.meta %>%
+    filter(cell.type != "in vitro") %>%
+    mutate(source = ifelse(cell.type == "circulating", "control", "treatment"),
+           sample = as.character(sample)) %>%
+    arrange(sample)
+  endotox.meta <- endotox.meta %>%
+    filter(cell.type == "circulating") %>%
+    mutate(source = ifelse(agent == "endotoxin", "treatment", "control"),
+           sample = as.character(sample)) %>%
+    arrange(sample)
+  exercise.meta <- exercise.meta %>%
+    mutate(source = ifelse(protocol == "after exercise", "treatment", "control"),
+           sample = as.character(sample)) %>%
+    arrange(sample)
+  syno.meta <- syno.meta %>%
+    mutate(sample = as.character(sampnames),
+           source = ifelse(tissue == "synovial", "treatment", "control")) %>%
+    arrange(sample)
+  # lcanc.meta <- lcanc.meta %>%
+  #   mutate(sample = as.character(samps),
+  #          source = ifelse(status == "tumor", "treatment", "control")) %>%
+  #   arrange(sample)
+  metals <- list(bldvat.meta, endotox.meta, exercise.meta, sepsis.meta, tb.meta, syno.meta,
+                 # lcanc.meta,
+                 airspace.meta)
+  names(metals) <- c("bldvat", "endotox", "exercise", "sepsis", "tb", "syno",
+                     # "lcanc",
+                     "airspace")
+```
+
+# Load expression data 
+```{r}
+bldvat <- read.table("../data/ncbi_processed/iso_bldvat.txt", 
+                     sep = "\t", header = TRUE, stringsAsFactors = FALSE) %>%
+  rename("Gene.Symbol" = Gene) %>%
+  mutate_if(is.integer, as.double)
+
+sepsis <- read.table("../data/ncbi_processed/iso_sepsis.txt",
+                     sep = "\t", header = TRUE, stringsAsFactors = FALSE) %>%
+  rename("Gene.Symbol" = Gene)  %>%
+  mutate_if(is.integer, as.double)
+
+tb <- read.table("../data/ncbi_processed/iso_tb.txt",
+                 sep = "\t", header = TRUE, stringsAsFactors = FALSE) %>%
+  rename("Gene.Symbol" = Gene)  %>%
+  mutate_if(is.integer, as.double)
+
+exercise <- read.table("../data/ncbi_processed/iso_exercise.txt",
+                       sep = "\t", header = TRUE, stringsAsFactors = FALSE) %>%
+  rename("Gene.Symbol" = Gene)  %>%
+  mutate_if(is.integer, as.double)
+
+endotox <- read.table("../data/ncbi_processed/iso_endotox.txt",
+                      sep = "\t", header = TRUE, stringsAsFactors = FALSE) %>%
+  rename("Gene.Symbol" = Gene)  %>%
+  mutate_if(is.integer, as.double)
+
+syno <- read.table("../data/ncbi_processed/iso_syno_GSE116899.txt",
+                   sep = "\t", header = TRUE, stringsAsFactors = FALSE) %>%
+  rename("Gene.Symbol" = Gene)  %>%
+  mutate_if(is.integer, as.double)
+```
+
+Phagocytosis
+```{r}
+ph.bldvat <- tmesig::calculateAvgZScore(bldvat, geneEntries("Phagocytosis"))
+ph.syno<- tmesig::calculateAvgZScore(syno, geneEntries("Phagocytosis"))
+ph.sepsis<- tmesig::calculateAvgZScore(sepsis, geneEntries("Phagocytosis"))
+ph.endotox<- tmesig::calculateAvgZScore(endotox, geneEntries("Phagocytosis"))
+ph.exercise<- tmesig::calculateAvgZScore(exercise, geneEntries("Phagocytosis"))
+ph.tb <- tmesig::calculateAvgZScore(tb, geneEntries("Phagocytosis"))
+
+phagocytosis <- rbind(ph.bldvat, ph.syno, ph.sepsis, ph.endotox, ph.tb)
+phagocytosis$Signature <- "Phagocytosis"
+```
+
+Chemotaxis
+```{r}
+ch.bldvat <- tmesig::calculateAvgZScore(bldvat, geneEntries("Chemotaxis"))
+ch.syno<- tmesig::calculateAvgZScore(syno, geneEntries("Chemotaxis"))
+ch.sepsis<- tmesig::calculateAvgZScore(sepsis, geneEntries("Chemotaxis"))
+ch.endotox<- tmesig::calculateAvgZScore(endotox, geneEntries("Chemotaxis"))
+ch.exercise<- tmesig::calculateAvgZScore(exercise, geneEntries("Chemotaxis"))
+ch.tb <- tmesig::calculateAvgZScore(tb, geneEntries("Chemotaxis"))
+
+chemotaxis <- rbind(ch.bldvat, ch.syno, ch.sepsis, ch.endotox, ch.tb)
+chemotaxis$Signature <- "Chemotaxis"
+```
+
+Neutrophil Activation Score
+```{r}
+neut.bldvat <- tmesig::calculateAvgZScore(bldvat, geneEntries("Neutrophil_Activation"))
+neut.syno<- tmesig::calculateAvgZScore(syno, geneEntries("Neutrophil_Activation"))
+neut.sepsis<- tmesig::calculateAvgZScore(sepsis, geneEntries("Neutrophil_Activation"))
+neut.endotox<- tmesig::calculateAvgZScore(endotox, geneEntries("Neutrophil_Activation"))
+neut.exercise<- tmesig::calculateAvgZScore(exercise, geneEntries("Neutrophil_Activation"))
+neut.tb <- tmesig::calculateAvgZScore(tb, geneEntries("Neutrophil_Activation"))
+
+neut.activation <- rbind(neut.bldvat, neut.syno, neut.sepsis, neut.endotox, neut.tb)
+neut.activation$Signature <- "Neutrophil Activation"
+```
+
+NADPH_Oxidase Score
+```{r}
+na.bldvat <- tmesig::calculateAvgZScore(bldvat, geneEntries("NADPH_Oxidase"))
+na.syno<- tmesig::calculateAvgZScore(syno, geneEntries("NADPH_Oxidase"))
+na.sepsis<- tmesig::calculateAvgZScore(sepsis, geneEntries("NADPH_Oxidase"))
+na.endotox<- tmesig::calculateAvgZScore(endotox, geneEntries("NADPH_Oxidase"))
+na.exercise<- tmesig::calculateAvgZScore(exercise, geneEntries("NADPH_Oxidase"))
+na.tb <- tmesig::calculateAvgZScore(tb, geneEntries("NADPH_Oxidase"))
+
+nadph <- rbind(na.bldvat, na.syno, na.sepsis, na.endotox, na.tb)
+nadph$Signature <- "NADPH Oxidase"
+```
+
+combine all
+```{r}
+sigs <- rbind(phagocytosis, chemotaxis, neut.activation, nadph)
+```
+
+filter to treatment samples for each group
+```{r}
+airspace <- metals$airspace %>%
+  filter(source == "treatment") %>%
+  mutate(Neutrophil = "Airspace") %>%
+  select(sample, Neutrophil)
+
+vat <- metals$bldvat %>%
+  filter(source == "treatment") %>%
+  mutate(Neutrophil = "VAT") %>%
+  select(sample, Neutrophil)
+
+endotoxin <- metals$endotox %>%
+  filter(source == "treatment") %>%
+  mutate(Neutrophil = "Endotoxin") %>%
+  select(sample, Neutrophil)
+
+exercise <- metals$exercise %>%
+  filter(source == "treatment") %>%
+  mutate(Neutrophil = "Exercise") %>%
+  select(sample, Neutrophil)
+
+sepsis <- metals$sepsis %>%
+  filter(source == "treatment") %>%
+  mutate(Neutrophil = "Sepsis") %>%
+  select(sample, Neutrophil)
+
+synovial <- metals$syno %>%
+  filter(source == "treatment") %>%
+  mutate(Neutrophil = "Synovial") %>%
+  select(sample, Neutrophil)
+
+tb <- metals$tb %>%
+  filter(source == "treatment") %>%
+  mutate(Neutrophil = "Active TB") %>%
+  select(sample, Neutrophil)
+
+all.samps <- rbind(airspace, vat, endotoxin, exercise, sepsis, synovial, tb)
+```
+
+```{r}
+sigs <- sigs %>%
+  filter(sample %in% all.samps$sample)
+
+sigs <- merge(sigs, all.samps)
+```
+
+plot
+```{r}
+sigs %>%
+  filter(Signature %in% c("Neutrophil Activation", "NADPH Oxidase")) %>%
+  ggplot(aes(x = avg_z_score, y = Neutrophil, fill = Neutrophil)) +
+  geom_violin() +
+  theme(base.size = 9) +
+  theme_bw() +
+  ylab("") +
+  xlab("Signature Score") +
+  facet_grid(.~Signature)
+
+ggsave("../figures/ActivationState_violin.png", dev = "png", height=3, width=5, dpi = 600)
+```
+
+
+
+
+
