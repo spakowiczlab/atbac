@@ -13,7 +13,7 @@ library(Seurat)
 
 ##load data
 ```{r}
-scrna <- readRDS("/fs/ess/PAS1695/projects/atbac/data/refquery_final.rds")
+scrna <- readRDS("/fs/ess/PAS1695/projects/atbac/data/scRNA/refquery_final.rds")
 ```
 
 ##get data from seurat
@@ -37,6 +37,6 @@ scrna.subset <- cbind(counts, cell.type, umap) %>%
 
 ##write csv
 ```{r}
-saveRDS(scrna.subset, file = "/fs/ess/PAS1695/projects/atbac/data/scrna-seurat-subset.RDS")
+saveRDS(scrna.subset, file = "/fs/ess/PAS1695/projects/atbac/data/scRNA/scrna-seurat-subset.RDS")
 ```
 
