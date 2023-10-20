@@ -43,12 +43,9 @@ scrna.frmt <- scrna.data %>%
 
 ##calculate sig score for each sample
 ```{r}
-##test <- scrna.frmt[1:10] %>%
-  ##calculateAvgZScore(neutmarkers)
-
 scrna.sig.score <- calculateAvgZScore(scrna.frmt, neutmarkers) %>%
   rename("sig_score" = "avg_z_score", "Sample" = "sample") %>%
-  left_join(select(scrna.data, c('Cell Type', umap_1, umap_2)))
+  left_join(scrna.data[c('Sample', 'Cell Type', 'umap_1', 'umap_2')], by = "Sample")
 ```
 
 ##make umap
@@ -61,7 +58,7 @@ scrna.sig.score %>%
   theme_bw()  +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
-ggsave("../figures/umap-scrna-vat-neut-score.png", height = 5, width = 5)
+ggsave("../figures/umap-scrna-vat-neut-score.png", height = 5, width = 7.5)
 ```
 
 ##make boxplot
