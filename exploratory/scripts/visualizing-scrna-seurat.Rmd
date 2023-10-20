@@ -34,7 +34,7 @@ neutmarkers <- c(neutmarkers.rough[-10], neut.hla)
 ##format data for sig score
 ```{r}
 scrna.frmt <- scrna.data %>%
-  select("Sample", neutmarkers) %>%
+  select("Sample", all_of(neutmarkers)) %>%
   column_to_rownames(var = "Sample") %>%
   t() %>%
   as.data.frame() %>%
@@ -43,26 +43,17 @@ scrna.frmt <- scrna.data %>%
 
 ##calculate sig score for each sample
 ```{r}
-calculateAvgZScore <- function(gene_matrix, genes){
-  
-  avg_z_score <- gene_matrix %>%
-    tidyr::gather(-Gene.Symbol, key = "sample", value = "counts") %>%
-    dplyr::mutate(Average = mean(counts), std_dev = sd(counts))%>%
-    dplyr::mutate(z_score = (counts - Average) / std_dev)%>%
-    dplyr::group_by(sample)%>%
-    dplyr::summarize(avg_z_score = mean(z_score))
-  return(avg_z_score)
-
-}
+##test <- scrna.frmt[1:10] %>%
+  ##calculateAvgZScore(neutmarkers)
 
 scrna.sig.score <- calculateAvgZScore(scrna.frmt, neutmarkers) %>%
-  rename(sig_score = avg_z_score) %>%
-  left_join(select(scrna.data, c('Cell Type', umap_1, umap_2)), by = rownames(scrna.data))
+  rename("sig_score" = "avg_z_score", "Sample" = "sample") %>%
+  left_join(select(scrna.data, c('Cell Type', umap_1, umap_2)))
 ```
 
 ##make umap
 ```{r}
-scrna.sig.genes %>%
+scrna.sig.score %>%
   ggplot(aes(x = umap_1, y = umap_2)) + 
   geom_point(aes(colour = sig_score)) +
   labs(x = "umap 1", y = "umap 2") +
