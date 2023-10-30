@@ -11,7 +11,7 @@ library(dplyr)
 library(Seurat)
 ```
 
-##load data
+##load data from the paper: https://www.nature.com/articles/s41597-023-02074-6
 ```{r}
 scrna <- readRDS("/fs/ess/PAS1695/projects/atbac/data/scRNA/refquery_final.rds")
 ```
@@ -35,7 +35,7 @@ scrna.subset <- cbind(counts, cell.type, umap) %>%
   rownames_to_column(var = "Sample")
 ```
 
-##write csv
+##make R object of subsetted data
 ```{r}
 saveRDS(scrna.subset, file = "/fs/ess/PAS1695/projects/atbac/data/scRNA/scrna-seurat-subset.RDS")
 ```
