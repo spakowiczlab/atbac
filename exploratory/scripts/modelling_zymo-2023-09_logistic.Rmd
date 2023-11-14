@@ -104,6 +104,17 @@ quickVolPlot <- function(pvals, fcs){
     scale_color_manual(values = taxacols, name = "Taxonomic\nlevel") +
     theme_bw()
 }
+
+rangeFormatting <- function(pvals, fcs, patlab){
+  volin <- pvals %>%
+    drop_na(p.value) %>%
+    left_join(fcs) %>%
+    mutate(colind = ifelse(p.value < 0.05, str_sub(term, 1,1),NA),
+           labtext = ifelse(p.value < 0.05, term,NA),
+           patient = patlab)
+  
+  return(volin)
+}
 ```
 
 # Formatting
@@ -329,8 +340,6 @@ fc.pellets <- calculateL2FC(sampset.pellets)
 quickVolPlot(mres.pellets, fc.pellets)
 ```
 
-
-
 # Summaries
 
 ## Short experiments
@@ -352,6 +361,82 @@ sig.OvL.p3 <- mres.OvL.short.p3 %>%
 sig.OvL.short <- bind_rows(sig.OvL.p1,sig.OvL.p2,sig.OvL.p3)
 sig.OvL.short
 write.csv(sig.OvL.short, "../data/modelling_significant_OvL-short.csv", row.names = F)
+```
+
+## Volcanic Range plot
+
+```{r}
+modres.forrange <- list("T6820" = list(mres.OvL.short.p1, fc.OvL.short.p1),
+                        "T6821" = list(mres.OvL.short.p2, fc.OvL.short.p2),
+                        "T6824" = list(mres.OvL.short.p3, fc.OvL.short.p3))
+
+rangedat <-lapply(names(modres.forrange), function(x) rangeFormatting(modres.forrange[[x]][[1]],
+                                                                      modres.forrange[[x]][[2]],
+                                                                      x)) %>%
+  bind_rows()
+```
+
+```{r}
+rangedat.form <- rangedat %>%
+  mutate(direction = ifelse(log2fc < 0, "Lean", "Obese"),
+         patnum = as.numeric(as.factor(patient)),
+         patval = ifelse(direction == "Lean", patnum - .1, patnum + .1),
+         sizeval = case_when(abs(log2fc) < 1 ~ "a",
+                             abs(log2fc) < 2 ~ "b",
+                             abs(log2fc) >=2  ~ "c")) %>%
+  drop_na(direction) 
+
+patkey <- rangedat.form %>%
+  select(patnum, patient) %>%
+  distinct()
+
+rangedat.form %>%
+  drop_na(direction) %>%
+  ggplot(aes(x = patval, y = -log(p.value), size = sizeval, color =direction)) +
+  geom_point() +
+  scale_color_brewer(palette = "Set1", name = "BMI status") +
+  scale_x_continuous(breaks = patkey$patnum, labels = patkey$patient) +
+  scale_size_manual(breaks = c("a", "b", "c"), 
+                    values = c(1,2,3), 
+                    labels = c("<1", "<2", ">=2"),
+                    name = "log2FoldChange") +
+  labs(x = "Patient") +
+  theme_bw()
+ggsave("../figures/vulcanrange_mouse-short.png")
+
+rangedat.form %>%
+  drop_na(direction) %>%
+  ggplot(aes(x = log2fc, y = -log(p.value)
+             # size = sizeval, color =direction
+             )
+         ) +
+  facet_wrap(vars(patient), ncol = 1) +
+  geom_point() +
+  # scale_color_brewer(palette = "Set1", name = "BMI status") +
+  # scale_x_continuous(breaks = patkey$patnum, labels = patkey$patient) +
+  # scale_size_manual(breaks = c("a", "b", "c"), 
+  #                   values = c(1,2,3), 
+  #                   labels = c("<1", "<2", ">=2"),
+  #                   name = "log2FoldChange") +
+  # labs(x = "Patient") +
+  theme_bw()
+ggsave("../figures/volcano_faceted_mouse-short.png")
+```
+
+```{r}
+library(plotly)
+plot_ly(y=rangedat.form$log2fc, z=-log(rangedat.form$p.value), x=rangedat.form$patient, type="scatter3d")
+rangedat.form %>%
+  ggplot(aes(y = as.factor(patient), z = -log(p.value), x = log2fc)) +
+  geom_point_z() +
+  # scale_color_brewer(palette = "Set1", name = "BMI status") +
+  # scale_x_continuous(breaks = patkey$patnum, labels = patkey$patient) +
+  # scale_size_manual(breaks = c("a", "b", "c"), 
+  #                   values = c(1,2,3), 
+  #                   labels = c("<1", "<2", ">=2"),
+  #                   name = "log2FoldChange") +
+  # labs(x = "Patient") +
+  theme_bw()
 ```
 
 # Check presence of significant microbes in stool, gavage
