@@ -219,7 +219,7 @@ plotdf <- readRDS("../data/spatial-transcriptomics_neutsig.RDS")
 plotdf %>%
   ggplot(aes(x = col, y = -row, color = Neutrophil)) +
   geom_point() +
-  scale_color_viridis_c() +
+  scale_color_viridis_c(option = "F", direction = -1) +
   theme_void()
 ggsave("../figures/points_spatialtrans.png")
 ```

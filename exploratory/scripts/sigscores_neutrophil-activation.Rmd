@@ -1,0 +1,206 @@
+---
+title: "sigscores_neutrophil-activation"
+author: "Rebecca Hoyd"
+date: "11/14/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(stringr)
+```
+
+# Load data
+
+```{r}
+pull_iso_metas <- function(){
+  bldvat.meta <- readRDS("../../manuscript/data/ncbi_processed/meta_bldvat.RDS")
+  sepsis.meta <- readRDS("../../manuscript/data/ncbi_processed/meta_sepsis.RDS")
+  tb.meta <- readRDS("../../manuscript/data/ncbi_processed/meta_tb.RDS")
+  exercise.meta <- readRDS("../../manuscript/data/ncbi_processed/meta_exercise.RDS")
+  endotox.meta <- readRDS("../../manuscript/data/ncbi_processed/meta_endotox.RDS")
+  syno.meta <- readRDS("../../manuscript/data/ncbi_processed/meta_syno.RDS")
+  lcanc.meta <- read.csv("../../manuscript/data/ncbi_processed/meta_lung-canc.csv", stringsAsFactors = F)
+  
+  bldvat.meta <- bldvat.meta %>%
+    mutate(sample = as.character(sample),
+           source = ifelse(source == "VAT", "treatment", "control")) %>%
+    arrange(sample)
+  sepsis.meta <- sepsis.meta %>%
+    mutate(source = ifelse(`sample_type:ch1` == "Patient", "treatment", "control")) %>%
+    arrange(geo_accession) %>%
+    mutate(sample = geo_accession)
+  tb.meta <- tb.meta %>%
+    filter(grepl("Neut", title)) %>%
+    mutate(source = ifelse(grepl("Control", characteristics_ch1.3), "control", "treatment")) %>% 
+    arrange(geo_accession) %>%
+    mutate(sample = geo_accession)
+  airspace.meta <- endotox.meta %>%
+    filter(cell.type != "in vitro") %>%
+    mutate(source = ifelse(cell.type == "circulating", "control", "treatment"),
+           sample = as.character(sample)) %>%
+    arrange(sample)
+  endotox.meta <- endotox.meta %>%
+    filter(cell.type == "circulating") %>%
+    mutate(source = ifelse(agent == "endotoxin", "treatment", "control"),
+           sample = as.character(sample)) %>%
+    arrange(sample)
+  exercise.meta <- exercise.meta %>%
+    mutate(source = ifelse(protocol == "after exercise", "treatment", "control"),
+           sample = as.character(sample)) %>%
+    arrange(sample)
+  syno.meta <- syno.meta %>%
+    mutate(sample = as.character(sampnames),
+           source = ifelse(tissue == "synovial", "treatment", "control")) %>%
+    arrange(sample)
+  # lcanc.meta <- lcanc.meta %>%
+  #   mutate(sample = as.character(samps),
+  #          source = ifelse(status == "tumor", "treatment", "control")) %>%
+  #   arrange(sample)
+  
+  metals <- list(bldvat.meta, endotox.meta, exercise.meta, sepsis.meta, tb.meta, syno.meta, 
+                 # lcanc.meta,
+                 airspace.meta)
+  names(metals) <- c("bldvat", "endotox", "exercise", "sepsis", "tb", "syno",
+                     # "lcanc", 
+                     "airspace")
+  return(metals)
+}
+
+pull_iso_counts <- function(metals){
+  bldvat <- read.table("../../manuscript/data/ncbi_processed/iso_bldvat.txt", 
+                       sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+  sepsis <- read.table("../../manuscript/data/ncbi_processed/iso_sepsis.txt",
+                       sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+  tb <- read.table("../../manuscript/data/ncbi_processed/iso_tb.txt",
+                   sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+  exercise <- read.table("../../manuscript/data/ncbi_processed/iso_exercise.txt",
+                         sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+  endotox <- read.table("../../manuscript/data/ncbi_processed/iso_endotox.txt",
+                        sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+  syno <- read.table("../../manuscript/data/ncbi_processed/iso_syno_GSE116899.txt",
+                     sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+  # lcanc <- read.table("../../data/ncbi_processed/iso_lung-canc_GSE68795.txt", 
+  #                     sep = "\t", header = T, stringsAsFactors = F)
+  # For this to work you're going to need to mess with the packages. But we are excluding lcanc anyway.
+  # lcanc <- lcanc %>%
+  #   column_to_rownames(var = "Entrez")
+  # lcanc <- collapseRows(lcanc[,-1], rowGroup = lcanc$Symbol, rowID = rownames(lcanc))
+  # lcanc <- lcanc$datETcollapsed %>%
+  #   as.data.frame() %>%
+  #   dplyr::select(lcanc.meta$sample)
+  
+  airspace <- endotox %>%
+    gather(-Gene, key = "sample", value = "count") %>%
+    mutate(count = round(count)) %>%
+    spread(key = "sample", value = "count")
+  
+  expls <- list(bldvat, endotox, exercise, sepsis, tb, syno,
+                # lcanc,
+                airspace)
+  datsource <- c("bldvat", "endotox", "exercise", "sepsis", "tb", "syno", 
+                 # "lcanc",
+                 "airspace")
+  names(expls) <- datsource
+  
+  expls.rightsamps <- lapply(datsource, function(x) expls[[x]] %>% select(c("Gene", metals[[x]]$sample)))
+  names(expls.rightsamps) <- datsource
+  return(expls.rightsamps)
+  
+}
+```
+
+```{r}
+neutmetas <- pull_iso_metas()
+neutcounts <- pull_iso_counts(neutmetas)
+labelled.genes = read.csv("../../manuscript/data/from-alecia/pathgenes.csv", stringsAsFactors = F)
+```
+
+# Calculate signatures
+
+## Extract signatures
+
+```{r}
+pathsigs <- str_split(labelled.genes$Genes, ",")
+names(pathsigs) <-labelled.genes$Role
+```
+
+## Apply to data
+
+```{r}
+calculateAvgZScore <-
+  function (gene_matrix, genes) 
+  {
+    gene_missing <- tmesig::checkGenes(gene_matrix$Gene.Symbol, score = NULL, 
+                               expected.genes = genes)
+    if (length(gene_missing) > 0) {
+      mis.genes.short <- paste(gene_missing, collapse = ",")
+      warn.message <- paste("Genes missing from set:", mis.genes.short)
+      print(warn.message)
+    }
+    avg_z_score <- gene_matrix %>% tidyr::pivot_longer(-Gene.Symbol, 
+                                                       names_to = "sample", values_to = "counts") %>% dplyr::group_by(Gene.Symbol) %>% 
+      dplyr::mutate(Average = mean(counts), std_dev = sd(counts)) %>% 
+      dplyr::ungroup() %>%
+      dplyr::mutate(z_score = (counts - 
+                                 Average)/std_dev) %>%
+      dplyr::filter(Gene.Symbol %in% genes & std_dev != 0 ) %>%
+      dplyr::group_by(sample) %>% dplyr::summarize(avg_z_score = mean(z_score))
+    return(avg_z_score)
+  }
+
+calcManyZScores <- function(inputdat){
+  tmp <- lapply(names(pathsigs), function(x) calculateAvgZScore(inputdat, pathsigs[[x]]) %>%
+                  rename(!!x := "avg_z_score"))
+  
+  res.df <- purrr::reduce(tmp, full_join)
+}
+```
+
+```{r}
+neutcounts.form <- lapply(neutcounts, function(x) 
+  x %>%
+    rename("Gene.Symbol" = Gene) %>%
+    mutate_if(is.integer, as.double))
+
+zdf.ls <- lapply(neutcounts.form, calcManyZScores)
+```
+
+# Plot
+
+## Select treatment samples
+
+```{r}
+celllabs <- as.data.frame(cbind(
+  Neutrophil= c("bldvat", "endotox", "exercise", "sepsis", "tb", "syno", "airspace"),
+  neutlabs = c("VAT", "Endotoxin", "Exercise", "Sepsis", "Active TB", "Synovial", "Airspace")
+  ))
+
+treatment.scores <- lapply(names(neutmetas), function(x)
+  neutmetas[[x]] %>%
+    filter(source == "treatment") %>%
+    select(sample) %>%
+    mutate(Neutrophil = x) %>%
+    left_join(zdf.ls[[x]])) %>%
+  bind_rows() %>%
+  left_join(celllabs)
+```
+
+## Visualization
+
+```{r}
+treatment.scores %>%
+  pivot_longer(-c("sample", "Neutrophil", "neutlabs"), names_to = "Pathway", values_to = "score") %>%
+    ggplot(aes(x = score, y = neutlabs, fill = Neutrophil)) +
+  facet_wrap(.~Pathway, nrow = 1, strip.position = "right") +
+  geom_violin(show.legend = F) +
+  scale_fill_viridis_d(option = "H") + 
+  labs(x = "Signature Score", y = "") +
+  theme_bw() +
+  theme(text = element_text(size = 8)) 
+  
+   
+ggsave("../figures/violin_neut-pathway-comparison.png", width = 7, height = 3)
+```
