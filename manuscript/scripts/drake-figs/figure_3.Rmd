@@ -13,6 +13,7 @@ library(ggfortify)
 library(ggforce)
 library(dplyr)
 library(ggExtra)
+library(ggforce)
 ```
 
 
@@ -146,7 +147,7 @@ GenePath.meta %>%
   #            position = position_dodge(width = .2))+
   geom_boxplot(aes(fill = source),
                show.legend = FALSE) +
-  facet_grid(cols = vars(Role), scales = "free", space = "free") +
+  facet_row(vars(Role), scales = "free", space = "free") +
   labs(x = "", y = "") +
   theme_bw() +
   theme(text = element_text(size = 10),
@@ -154,7 +155,7 @@ GenePath.meta %>%
   scale_color_brewer(palette="Dark2") +
   scale_fill_brewer(palette="Dark2") 
 ggsave("../../figures/pathway-genes_boxplot_1.png", 
-       height = 2, width = 5.2)
+       height = 2, width = 5.7)
 
 GenePath.meta %>%
   drop_na(counts) %>%
@@ -170,7 +171,7 @@ GenePath.meta %>%
   #            position = position_dodge(width = .2))+
   geom_boxplot(aes(fill = source),
                show.legend = FALSE) +
-  facet_grid(cols = vars(Role), scales = "free", space = "free") +
+  facet_row(vars(Role), scales = "free", space = "free") +
   labs(x = "", y = "") +
   theme_bw() +
   theme(text = element_text(size = 10),
@@ -178,7 +179,7 @@ GenePath.meta %>%
   scale_color_brewer(palette="Dark2") +
   scale_fill_brewer(palette="Dark2") 
 ggsave("../../figures/pathway-genes_boxplot_2.png", 
-       height = 2, width = 5.2)
+       height = 2, width = 5.7)
 
 GenePath.meta %>%
   drop_na(counts) %>%
@@ -189,7 +190,7 @@ GenePath.meta %>%
   #            position = position_dodge(width = .2))+
   geom_boxplot(aes(fill = source),
                show.legend = T) +
-  facet_grid(cols = vars(Role), scales = "free", space = "free") +
+  facet_row(vars(Role), scales = "free", space = "free") +
   labs(x = "", y = "") +
   theme_bw() +
   theme(text = element_text(size = 10),
