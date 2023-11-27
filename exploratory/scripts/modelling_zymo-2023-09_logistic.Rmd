@@ -108,6 +108,7 @@ quickVolPlot <- function(pvals, fcs){
 rangeFormatting <- function(pvals, fcs, patlab){
   volin <- pvals %>%
     drop_na(p.value) %>%
+    mutate(term = str_remove_all(term, "`")) %>%
     left_join(fcs) %>%
     mutate(colind = ifelse(p.value < 0.05, str_sub(term, 1,1),NA),
            labtext = ifelse(p.value < 0.05, term,NA),
@@ -128,7 +129,12 @@ tax.form <- tax %>%
          order = ifelse(order == "o__NA", paste0("o__unclassified-", gsub("c__unclassified-", "", class)), order),
          family = ifelse(family == "f__NA", paste0("f__unclassified-", gsub("o__unclassified-", "", order)), family),
          genus = ifelse(genus == "g__NA", paste0("g__unclassified-", gsub("f__unclassified-", "", family)), genus),
-         species = ifelse(species == "s__NA", paste0("s__unclassified-", gsub("g__unclassified-", "", genus)), species))
+         species = ifelse(species != "s__NA", 
+                          paste0("s__", gsub("g__", "", genus),"-", gsub("s__", "", species)),
+                          # species
+                          paste0("s__unclassified-", gsub("g__unclassified-", "", genus))
+         )
+  )
 
 
 seqtab.long <- seqtab %>%
@@ -301,6 +307,7 @@ fc.OvLy.w1 <- calculateL2FC(sampset.OvLy.w1)
 
 quickVolPlot(mres.OvLy.w1, fc.OvLy.w1)
 ```
+
 ```{r, message=FALSE,warning=FALSE}
 sampset.OvLy.w3 <- metadata %>%
   filter(long.exp == T & gavage == F &
@@ -377,14 +384,27 @@ rangedat <-lapply(names(modres.forrange), function(x) rangeFormatting(modres.for
 ```
 
 ```{r}
+proteobacteria <- tax.form %>%
+  filter(phylum == "p__Proteobacteria") %>%
+  select(-V1,) %>%
+  pivot_longer(-kingdom, names_to = "level", values_to = "values") %>%
+  select(values) %>%
+  distinct()
+
 rangedat.form <- rangedat %>%
+  mutate(t6820.ind = p.value == min(p.value), .by = patient) %>%
   mutate(direction = ifelse(log2fc < 0, "Lean", "Obese"),
          patnum = as.numeric(as.factor(patient)),
-         patval = ifelse(direction == "Lean", patnum - .1, patnum + .1),
+         protval = ifelse(term %in% proteobacteria$values, "Proteobacteria", "Not Proteobacteria"),
+         nudgeval = ifelse(protval == "Proteobacteria", .15,.1),
+         patval = ifelse(direction == "Lean", patnum - nudgeval, patnum + nudgeval),
          sizeval = case_when(abs(log2fc) < 1 ~ "a",
                              abs(log2fc) < 2 ~ "b",
-                             abs(log2fc) >=2  ~ "c")) %>%
-  drop_na(direction) 
+                             abs(log2fc) >=2  ~ "c"),
+         pointlab = ifelse(term == "g__Noviherbaspirillum" & patient == "T6820",
+                           "Noviherbaspirillum",
+                           gsub("-", " ", str_remove_all(str_remove(labtext, "\\w__"), "`")))
+  )
 
 patkey <- rangedat.form %>%
   select(patnum, patient) %>%
@@ -392,35 +412,31 @@ patkey <- rangedat.form %>%
 
 rangedat.form %>%
   drop_na(direction) %>%
-  ggplot(aes(x = patval, y = -log(p.value), size = sizeval, color =direction)) +
-  geom_point() +
-  scale_color_brewer(palette = "Set1", name = "BMI status") +
+  ggplot(aes(x = patval, y = -log(p.value), shape = protval)) +
+  geom_point(aes(size = sizeval, color =direction)) +
+  geom_text_repel(aes(label = pointlab), size = 3) +
+  scale_color_brewer(palette = "Set1", name = "", labels = c("Depleted in Obese", "Enriched in Obese")) +
   scale_x_continuous(breaks = patkey$patnum, labels = patkey$patient) +
   scale_size_manual(breaks = c("a", "b", "c"), 
                     values = c(1,2,3), 
                     labels = c("<1", "<2", ">=2"),
                     name = "log2FoldChange") +
+  scale_shape(name = "") +
   labs(x = "Patient") +
-  theme_bw()
+  theme_bw() +
+  theme(text = element_text(size = 9))
 ggsave("../figures/vulcanrange_mouse-short.png")
 
-rangedat.form %>%
-  drop_na(direction) %>%
-  ggplot(aes(x = log2fc, y = -log(p.value)
-             # size = sizeval, color =direction
-             )
-         ) +
-  facet_wrap(vars(patient), ncol = 1) +
-  geom_point() +
-  # scale_color_brewer(palette = "Set1", name = "BMI status") +
-  # scale_x_continuous(breaks = patkey$patnum, labels = patkey$patient) +
-  # scale_size_manual(breaks = c("a", "b", "c"), 
-  #                   values = c(1,2,3), 
-  #                   labels = c("<1", "<2", ">=2"),
-  #                   name = "log2FoldChange") +
-  # labs(x = "Patient") +
-  theme_bw()
-ggsave("../figures/volcano_faceted_mouse-short.png")
+# rangedat.form %>%
+#   drop_na(direction) %>%
+#   ggplot(aes(x = log2fc, y = -log(p.value)
+#              # size = sizeval, color =direction
+#              )
+#          ) +
+#   facet_wrap(vars(patient), ncol = 1) +
+#   geom_point() +
+#   theme_bw()
+# ggsave("../figures/volcano_faceted_mouse-short.png")
 ```
 
 ```{r}

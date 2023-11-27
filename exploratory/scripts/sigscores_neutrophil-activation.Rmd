@@ -173,26 +173,34 @@ zdf.ls <- lapply(neutcounts.form, calcManyZScores)
 ## Select treatment samples
 
 ```{r}
+celllabs <- as.data.frame(cbind(
+  Neutrophil= c("bldvat", "endotox", "exercise", "sepsis", "tb", "syno", "airspace"),
+  neutlabs = c("VAT", "Endotoxin", "Exercise", "Sepsis", "Active TB", "Synovial", "Airspace")
+  ))
+
 treatment.scores <- lapply(names(neutmetas), function(x)
   neutmetas[[x]] %>%
     filter(source == "treatment") %>%
     select(sample) %>%
     mutate(Neutrophil = x) %>%
     left_join(zdf.ls[[x]])) %>%
-  bind_rows()
+  bind_rows() %>%
+  left_join(celllabs)
 ```
 
 ## Visualization
 
 ```{r}
 treatment.scores %>%
-  pivot_longer(-c("sample", "Neutrophil"), names_to = "Pathway", values_to = "score") %>%
-    ggplot(aes(x = score, y = Neutrophil, fill = Neutrophil)) +
-  geom_violin() +
-  theme(base.size = 9) +
+  pivot_longer(-c("sample", "Neutrophil", "neutlabs"), names_to = "Pathway", values_to = "score") %>%
+    ggplot(aes(x = score, y = neutlabs, fill = Neutrophil)) +
+  facet_wrap(.~Pathway, nrow = 1, strip.position = "right") +
+  geom_violin(show.legend = F) +
+  scale_fill_viridis_d(option = "H") + 
+  labs(x = "Signature Score", y = "") +
   theme_bw() +
-  ylab("") +
-  xlab("Signature Score") +
-  facet_wrap(.~Pathway)
-ggsave("../figures/violin_neut-pathway-comparison.png")
+  theme(text = element_text(size = 8)) 
+  
+   
+ggsave("../figures/violin_neut-pathway-comparison.png", width = 7, height = 3)
 ```
