@@ -13,6 +13,7 @@ library(ggfortify)
 library(ggforce)
 library(dplyr)
 library(ggExtra)
+library(ggforce)
 ```
 
 
@@ -123,54 +124,82 @@ GenePath.meta %>%
         axis.text.x = element_text(angle = 45, hjust = 1)) 
   ggsave("../../figures/barplots_pathway-gene-exp_all.png", width = 15)
 ```
+
 ```{r}
 # dodge <- position_dodge(width = 0.4)
 
-pathset1 <- c("Inflammation","Bactericidal Activity/LPS induced genes", "Chemotaxis")
+pathset1 <- c("Inflammation","Bactericidal Activity/LPS induced genes",
+              "Chemotaxis"
+              # "ROS production", "Inhibition of Apoptosis"
+              )
 
 GenePath.meta %>%
   drop_na(counts) %>%
   filter(Role %in% pathset1) %>%
   mutate(Role = gsub("(.*)/LPS induced genes", "\\1", Role),
          Role = gsub("ROS production", "ROS", Role),
-         Role = gsub("Inhibition of Apoptosis", "Apoptosis", Role)) %>%
+         Role = gsub("Inhibition of Apoptosis", "Apoptosis", Role),
+         Role = gsub("Growth Factors", "Growth Factor", Role)) %>%
   mutate(Role = fct_relevel(Role, "Inflammation")) %>%
   ggplot(aes(x = Gene, y = log(counts))) +
   # geom_violin(aes(fill = source), position = dodge) +
-  geom_point(alpha = 0.5, aes(color = source), show.legend = FALSE,
-             position = position_dodge(width = .2))+
+  # geom_point(alpha = 0.5, aes(color = source), show.legend = FALSE,
+  #            position = position_dodge(width = .2))+
   geom_boxplot(aes(fill = source),
                show.legend = FALSE) +
-  facet_grid(cols = vars(Role), scales = "free", space = "free") +
-  labs(x = "", y = "Expression") +
-  theme_bw(base_size = 12) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_row(vars(Role), scales = "free", space = "free") +
+  labs(x = "", y = "") +
+  theme_bw() +
+  theme(text = element_text(size = 10),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_color_brewer(palette="Dark2") +
   scale_fill_brewer(palette="Dark2") 
-ggsave("../../figures/pathway-genes_boxplot_1.svg", 
-       height = 2, width = 4)
+ggsave("../../figures/pathway-genes_boxplot_1.png", 
+       height = 2, width = 5.7)
 
 GenePath.meta %>%
   drop_na(counts) %>%
   filter(!Role %in% pathset1) %>%
   mutate(Role = gsub("(.*)/LPS induced genes", "\\1", Role),
          Role = gsub("ROS production", "ROS", Role),
-         Role = gsub("Inhibition of Apoptosis", "Apoptosis", Role)) %>%
+         Role = gsub("Inhibition of Apoptosis", "Apoptosis", Role),
+         Role = gsub("Growth Factors", "Growth Factor", Role)) %>%
   mutate(Role = fct_relevel(Role, "Inflammation")) %>%
   ggplot(aes(x = Gene, y = log(counts))) +
   # geom_violin(aes(fill = source), position = dodge) +
-  geom_point(alpha = 0.5, aes(color = source), show.legend = FALSE,
-             position = position_dodge(width = .2))+
+  # geom_point(alpha = 0.5, aes(color = source), show.legend = FALSE,
+  #            position = position_dodge(width = .2))+
   geom_boxplot(aes(fill = source),
                show.legend = FALSE) +
-  facet_grid(cols = vars(Role), scales = "free", space = "free") +
-  labs(x = "", y = "Expression") +
-  theme_bw(base_size = 12) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_row(vars(Role), scales = "free", space = "free") +
+  labs(x = "", y = "") +
+  theme_bw() +
+  theme(text = element_text(size = 10),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_color_brewer(palette="Dark2") +
   scale_fill_brewer(palette="Dark2") 
-ggsave("../../figures/pathway-genes_boxplot_2.svg", 
-       height = 2, width = 4)
+ggsave("../../figures/pathway-genes_boxplot_2.png", 
+       height = 2, width = 5.7)
+
+GenePath.meta %>%
+  drop_na(counts) %>%
+  filter(!Role %in% pathset1) %>%
+  ggplot(aes(x = Gene, y = log(counts))) +
+  # geom_violin(aes(fill = source), position = dodge) +
+  # geom_point(alpha = 0.5, aes(color = source), show.legend = FALSE,
+  #            position = position_dodge(width = .2))+
+  geom_boxplot(aes(fill = source),
+               show.legend = T) +
+  facet_row(vars(Role), scales = "free", space = "free") +
+  labs(x = "", y = "") +
+  theme_bw() +
+  theme(text = element_text(size = 10),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top") +
+  scale_color_brewer(palette="Dark2") +
+  scale_fill_brewer(palette="Dark2", name = "")
+ggsave("../../figures/pathway-genes_boxplot_legend.png", 
+       height = 2, width = 5.2)
 ```
 
 
