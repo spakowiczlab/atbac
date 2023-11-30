@@ -410,6 +410,7 @@ patkey <- rangedat.form %>%
   select(patnum, patient) %>%
   distinct()
 
+save(rangedat.form, patkey, file = "../data/plotdat_mouse-exp_vulcanrange.rda")
 rangedat.form %>%
   drop_na(direction) %>%
   ggplot(aes(x = patval, y = -log(p.value), shape = protval)) +
