@@ -165,13 +165,17 @@ nmds.neuts.genes <- nmds.neuts.counts %>%
   filter(pointtype == "gene")
 nmds.neuts.samples <- nmds.neuts.counts %>%
   filter(pointtype == "sample")
+neuthulls <- nmds.neuts.samples %>%
+  group_by(neutgroup) %>%
+  slice(chull(MDS1,MDS2))
 
 nmds.neuts.samples %>%
   ggplot(aes(x = MDS1, y = MDS2, color = neutgroup, fill= neutgroup,
              # label = pointlab, 
              alpha = pointtype)) +
   geom_point(data = nmds.neuts.counts, show.legend = F) +
-  stat_ellipse(geom = "polygon", alpha = .3) +
+  # stat_ellipse(geom = "polygon", alpha = .3) +
+  geom_polygon(data = neuthulls, alpha = .3) +
   geom_point() +
   # geom_text_repel(show.legend = F) +
   scale_color_viridis(discrete = TRUE,option = "turbo", na.value = "grey66",
@@ -188,8 +192,8 @@ nmds.neuts.samples %>%
   theme_bw() +
   theme(axis.text = element_blank(),
         axis.ticks = element_blank()) 
-  ggsave("../../figures/nmds_neutrophil-state_counts.pdf",
-         height = 5, width = 5)
+  ggsave("../../figures/nmds_neutrophil-state_counts.png",
+         height = 3, width = 3)
 ```
 
 # Related table : check genes in DESeq2 results
