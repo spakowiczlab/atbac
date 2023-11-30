@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+library(tidyverse)
 library(ggplot2)
 library(ggrepel)
 ```
@@ -20,17 +21,38 @@ rangedat.form %>%
   drop_na(direction) %>%
   ggplot(aes(x = patval, y = -log(p.value), shape = protval)) +
   geom_point(aes(size = sizeval, color =direction)) +
-  geom_text_repel(aes(label = pointlab), size = 3) +
-  scale_color_brewer(palette = "Set1", name = "", labels = c("Depleted in Obese", "Enriched in Obese")) +
+  geom_label_repel(aes(label = pointlab), size = 3) +
+  scale_color_brewer(palette = "Set1", name = "", labels = c("Depleted\nin Obese", "Enriched\nin Obese")) +
   scale_x_continuous(breaks = patkey$patnum, labels = patkey$patient) +
+  scale_shape(name = "",
+              breaks = c("Proteobacteria", "Not Proteobacteria"), 
+              labels = c("Proteobacteria", "Others")) +
   scale_size_manual(breaks = c("a", "b", "c"), 
                     values = c(1,2,3), 
                     labels = c("<1", "<2", ">=2"),
-                    name = "log2FoldChange") +
-  scale_shape(name = "") +
+                    name = "FoldChange") +
   labs(x = "Patient") +
   theme_bw() +
-  theme(text = element_text(size = 9))
-ggsave("../figures/volcanic-range_mouseexp.pdf")
+  theme(text = element_text(size = 8))
+ggsave("../figures/volcanic-range_mouseexp_legend.png", height = 4, width = 3)
+
+rangedat.form %>%
+  drop_na(direction) %>%
+  ggplot(aes(x = patval, y = -log(p.value), shape = protval)) +
+  geom_point(aes(size = sizeval, color =direction), show.legend = F) +
+  geom_label_repel(aes(label = pointlab), size = 2, show.legend = F) +
+  scale_color_brewer(palette = "Set1", name = "", labels = c("Depleted\nin Obese", "Enriched\nin Obese")) +
+  scale_x_continuous(breaks = patkey$patnum, labels = patkey$patient) +
+  scale_shape(name = "",
+              breaks = c("Proteobacteria", "Not Proteobacteria"), 
+              labels = c("Proteobacteria", "Others")) +
+  scale_size_manual(breaks = c("a", "b", "c"), 
+                    values = c(1,2,3), 
+                    labels = c("<1", "<2", ">=2"),
+                    name = "FoldChange") +
+  labs(x = "Patient") +
+  theme_bw() +
+  theme(text = element_text(size = 8))
+ggsave("../figures/volcanic-range_mouseexp.png", height = 3.5, width = 3.5)
 ```
 
