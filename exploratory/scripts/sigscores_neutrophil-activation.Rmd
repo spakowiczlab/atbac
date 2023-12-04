@@ -204,3 +204,29 @@ treatment.scores %>%
    
 ggsave("../figures/violin_neut-pathway-comparison.png", width = 7, height = 3)
 ```
+
+# Check significance
+
+```{r}
+toKWtest <- function(nname){
+  tmp <- treatment.scores %>%
+    filter(neutlabs %in% c("VAT", nname))
+  
+  kw.res <- lapply(names(pathsigs), function(x) kruskal.test(tmp[[x]], tmp[["neutlabs"]]) %>%
+                     broom::tidy() %>%
+                     mutate(pathway = x)) %>%
+    bind_rows()
+  
+  return(kw.res)
+}
+
+neuts <- unique(treatment.scores$neutlabs)[-1]
+
+```
+
+```{r}
+kws <- lapply(neuts, toKWtest)
+names(kws) <- neuts
+
+kws
+```
