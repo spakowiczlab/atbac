@@ -54,5 +54,6 @@ rangedat.form %>%
   theme_bw() +
   theme(text = element_text(size = 8))
 ggsave("../figures/volcanic-range_mouseexp.png", height = 3.5, width = 3.5)
+ggsave("../figures/volcanic-range_mouseexp.svg", height = 3.5, width = 3.5)
 ```
 
