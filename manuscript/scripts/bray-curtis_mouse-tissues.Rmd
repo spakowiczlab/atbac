@@ -1,0 +1,53 @@
+---
+title: "Distance between tissue types"
+output: html_document
+date: "2023-12-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+# Load data
+
+```{r}
+tax <- read.table("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/zr13065.16S_230916.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_tax_assignments.txt", stringsAsFactors = F, header = F, sep = "\t")
+seqtab <- read.csv("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/zr13065.16S_230916.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_Abundance_Table.csv")
+```
+
+# Formatting
+
+```{r wide relative abundances}
+tax.form <- tax %>%
+  select(V1, V2) %>%
+  separate(V2, into = c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = ";") %>%
+  mutate(phylum = ifelse(phylum == "p__NA", paste0("p__unclassified-", kingdom), phylum),
+         class = ifelse(class == "c__NA", paste0("c__unclassified-", gsub("p__unclassified-", "", phylum)), class),
+         order = ifelse(order == "o__NA", paste0("o__unclassified-", gsub("c__unclassified-", "", class)), order),
+         family = ifelse(family == "f__NA", paste0("f__unclassified-", gsub("o__unclassified-", "", order)), family),
+         genus = ifelse(genus == "g__NA", paste0("g__unclassified-", gsub("f__unclassified-", "", family)), genus),
+         species = ifelse(species != "s__NA", 
+                          paste0("s__", gsub("g__", "", genus),"-", gsub("s__", "", species)),
+                          # species
+                          paste0("s__unclassified-", gsub("g__unclassified-", "", genus))
+         )
+  )
+
+
+seqtab.long <- seqtab %>%
+  pivot_longer(-seqs, names_to = "V1", values_to = "counts") %>%
+  mutate(samptot = sum(counts), .by = seqs) %>%
+  mutate(relabun = counts/samptot) %>%
+  left_join(tax.form) %>%
+  drop_na() %>%
+  select(-samptot, -V1, -counts) %>%
+  rename("sample" = "seqs")
+
+relabun.w <- exoToDF(data = seqtab.long)
+
+microbes <- colnames(relabun.w)[-1]
+```
+
+

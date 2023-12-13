@@ -1,0 +1,67 @@
+---
+title: "diversity_human-16s"
+output: html_document
+date: "2023-12-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+# Load data
+
+```{r}
+seqtab <- readRDS("../../exploratory/data/seqtabNoCf_update.RDS")
+tax <- readRDS("../../exploratory/data/taxf_update.RDS")
+
+bmi.stat <- read.csv("../data/atbac/samples_obesity-status.csv", stringsAsFactors = F) %>%
+    select(-sample.name) %>%
+    mutate(label = paste0(sequence.id, "-I")) %>%
+    filter(!is.na(BMI))
+```
+
+# Richness
+
+```{r}
+spec.counts <- seqtab %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "label") %>%
+  pivot_longer(-label, names_to = "sequence", values_to = "counts") %>%
+  filter(counts != 0) %>%
+  group_by(label) %>%
+  tally() %>%
+  inner_join(bmi.stat)
+
+shapiro.test(spec.counts$n)
+t.test(spec.counts$n ~ spec.counts$BMI)
+kruskal.test(spec.counts$n ~ spec.counts$BMI)
+
+spec.counts %>%
+  ggplot(aes(x = BMI, y = n)) +
+  geom_boxplot() +
+  labs(y = "Number of species") +
+  theme_bw()
+ggsave("../figures/boxplot_species-richness-Hs-16s.png")
+```
+
+# Diversity
+
+```{r}
+div.calc <- diversity(seqtab, index = "simpson") %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "label") %>%
+  inner_join(bmi.stat)
+```
+
+```{r}
+kruskal.test(div.calc$. ~ div.calc$BMI)
+
+div.calc %>%
+  ggplot(aes(x = BMI, y = `.`)) +
+  geom_boxplot() +
+  labs(y = "Simpson's diversity") +
+  theme_bw()
+ggsave("../figures/boxplot_simpsons-Hs-16s.png")
+```
