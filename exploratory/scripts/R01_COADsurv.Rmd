@@ -137,5 +137,7 @@ ggsurvplot(SP_COAD,
 ) 
 
 ggsave("../figures/R01_COAD_surv_Blo.svg", device = "svg", dpi = 400, height = 4, width = 3)
-```
+ggsave("../figures/R01_COAD_surv_Blo.png", height = 4, width = 3)
+ggsave("../figures/R01_COAD_surv_Blo_wider.png", height = 4, width = 5)
+    ```
 
