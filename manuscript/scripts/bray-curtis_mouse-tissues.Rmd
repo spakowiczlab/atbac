@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(vegan)
+library(eulerr)
 ```
 
 # Load data
@@ -62,6 +63,8 @@ metadata <- seqtab %>%
          patient= ifelse(long.exp == F & bmi.status == "Obese" & tissue != "Pellet" & is.na(patient), "T6824", patient))
 ```
 
+# Bray-Curtis distance
+
 ```{r calculate distance}
 bc.dist <- seqtab %>%
   column_to_rownames(var = "seqs") %>%
@@ -98,3 +101,29 @@ bc.plot %>%
 ggsave("../figures/bray-curtis_vat-lung-pellet.png")
 ```
 
+# Venn diagram shared species
+
+```{r}
+specseqs <- seqtab %>%
+  pivot_longer(-seqs, names_to = "sequence", values_to = "counts") %>%
+  rename("sample" = "seqs") %>%
+  filter(counts > 0) %>%
+  inner_join(compsamps)
+
+VATseqs <- filter(specseqs, tissue == "VAT")$sequence
+lungseqs <- filter(specseqs, tissue == "Lung")$sequence
+stoolseqs <- filter(specseqs, tissue == "Pellet")$sequence
+
+listseqs <- list(VAT = unique(VATseqs),
+                 Lung = unique(lungseqs),
+                 Stool = unique(stoolseqs))
+
+euldat <- euler(combinations = listseqs, shape = "ellipse")
+```
+
+```{r}
+png("../figures/euler_mouse-tissue-overlap.png")
+plot(euldat)
+dev.off()
+
+```
