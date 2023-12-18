@@ -1,0 +1,73 @@
+---
+title: "vat-by-gender-power"
+author: "Dan Spakowicz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readxl)
+library(tidyverse)
+library(pwr)
+```
+
+```{r}
+x <- readxl::read_xlsx("../data/Genders analysis for figure 1A.xlsx") %>%
+  select(-`###`) 
+```
+
+```{r}
+bmi <- 
+  x %>%
+  mutate(gender = if_else(grepl("female", Gender),
+                          true = "Female",
+                          false = Gender)) %>%
+  mutate(bmi.cat = if_else(grepl("L", `Patient ID`),
+                           true = "Lean",
+                           false = "Obese")
+         ) 
+```
+
+```{r}
+bmi %>%
+  ggplot(aes(x = gender, y = `% VAT neutrophils`)) +
+  geom_boxplot(aes(fill = bmi.cat))
+```
+
+```{r}
+females <- 
+  bmi %>%
+  filter(gender == "Female")
+
+means <- 
+  females %>%
+  group_by(bmi.cat) %>%
+  summarize(mean = mean(`% VAT neutrophils`),
+            sd = sd(`% VAT neutrophils`),
+            n = n())
+
+diff.means <- 
+  means$mean[means$bmi.cat == "Obese"] - means$mean[means$bmi.cat == "Lean"]
+
+pooled.sd <- 
+  sqrt(means$sd[means$bmi.cat == "Obese"]^2 + 
+         means$sd[means$bmi.cat == "Lean"]^2)
+
+cohens.d <- diff.means / pooled.sd
+```
+
+```{r}
+bmi %>%
+  filter(gender == "Male") %>%
+  group_by(bmi.cat) %>%
+    summarize(mean = mean(`% VAT neutrophils`),
+            sd = sd(`% VAT neutrophils`),
+            n = n())
+
+pwr.t.test(n = 4, d = cohens.d, sig.level = 0.05)
+pwr.t.test(n = 6, d = cohens.d, sig.level = 0.05)
+
+```
+
