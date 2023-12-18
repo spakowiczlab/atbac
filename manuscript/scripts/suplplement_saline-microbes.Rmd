@@ -153,7 +153,8 @@ zymo.saline <- zymo.seqtab %>%
 # Combine
 
 ```{r}
-abundant.mics <- bind_rows(seqtab.long, zymo.saline)
+abundant.mics <- bind_rows(seqtab.long, zymo.saline) %>%
+  pivot_wider(names_from = "diet", values_from = "medianAbsoluteAbundance", values_fill = 0)
 
 write.csv(abundant.mics, "../tables/saline-abundant-microbes.csv", row.names = F)
 ```
