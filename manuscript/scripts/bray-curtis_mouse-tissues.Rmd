@@ -122,6 +122,12 @@ euldat <- euler(combinations = listseqs, shape = "ellipse")
 ```
 
 ```{r}
+compsamps %>%
+  group_by(tissue) %>%
+  tally()
+```
+
+```{r}
 png("../figures/euler_mouse-tissue-overlap.png")
 plot(euldat)
 dev.off()

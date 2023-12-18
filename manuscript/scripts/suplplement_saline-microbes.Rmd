@@ -16,11 +16,15 @@ library(tidyverse)
 ```{r}
 tax <- read.table("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/zr13065.16S_230916.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_tax_assignments.txt", stringsAsFactors = F, header = F, sep = "\t")
 seqtab <- read.csv("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/zr13065.16S_230916.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_Abundance_Table.csv")
+
+abun <- read.csv("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/zr13065.16S_230916.zymo/00...AllSamples.Bac16Sv34/Sample_Information/absolute.abundance.csv")
 ```
 
 ```{r}
 zymo.seqtab <- read.csv("/fs/ess/PAS1695/projects/atbac/data/zymo_old/ASV_Abundance_Table.csv")
 zymo.tax <- read.table("/fs/ess/PAS1695/projects/atbac/data/zymo_old/ASV_tax_assignments.txt", sep = "\t")
+
+zymo.abun <-read.csv("/fs/ess/PAS1695/projects/atbac/data/zymo_old/absolute.abundance.csv")
 ```
 
 # Formatting
@@ -68,7 +72,9 @@ metadata <- seqtab %>%
          patient= ifelse(long.exp == F & bmi.status == "Obese" & tissue != "Pellet" & is.na(patient), "T6824", patient))
 
 samps2023 <- metadata %>%
-  filter(tissue == "VAT" & bmi.status == "Saline" & timepoint == "Week1" & diet == "HFD")
+  mutate(diet = ifelse(grepl("HFD", diet), "HFD", diet)) %>%
+  filter(tissue == "VAT" & bmi.status == "Saline" & timepoint == "Week1") %>%
+  select(sample, diet)
 ```
 
 ```{r 2023 batch taxonomy}
@@ -87,14 +93,21 @@ tax.form <- tax %>%
          )
   )
 
+abun.form <- abun %>%
+  mutate(sample = customer_label) %>%
+  select(sample, genome_copies_per_ul.)
 
 seqtab.long <- seqtab %>%
-  filter(seqs %in% samps2023$sample) %>%
-  pivot_longer(-seqs, names_to = "V1", values_to = "counts") %>%
-  group_by(V1) %>%
-  summarize(med.counts = median(counts)) %>%
-  filter(med.counts > 0) %>%
-  arrange(desc(med.counts)) %>%
+  rename("sample" = "seqs") %>%
+  inner_join(samps2023) %>%
+  pivot_longer(-c("sample", "diet"), names_to = "V1", values_to = "counts") %>%
+  mutate(ra = counts/sum(counts), .by = sample) %>%
+  left_join(abun.form) %>%
+  mutate(abs.abun = ra * genome_copies_per_ul.) %>%
+  group_by(V1, diet) %>%
+  summarize(medianAbsoluteAbundance = median(abs.abun)) %>%
+  filter(medianAbsoluteAbundance > 0) %>%
+  arrange(desc(medianAbsoluteAbundance)) %>%
   left_join(tax.form) %>%
   mutate(batch = "1")
 
@@ -118,15 +131,24 @@ zymo.tax.form <- zymo.tax %>%
          )
   )
 
+zymo.abun.form <- zymo.abun %>%
+  mutate(sample = customer_label) %>%
+  select(sample, genome_copies_per_ul.)
+
 zymo.saline <- zymo.seqtab %>%
   filter(grepl("HFD.VAT", seqs)) %>%
   pivot_longer(-seqs, names_to = "V1", values_to = "counts") %>%
+  mutate(sample = seqs) %>%
+  mutate(ra = counts/sum(counts), .by = sample) %>%
+  left_join(zymo.abun.form) %>%
+  mutate(abs.abun = ra * genome_copies_per_ul.) %>%
   group_by(V1) %>%
-  summarize(med.counts = median(counts)) %>%
-  filter(med.counts > 0) %>%
-  arrange(desc(med.counts)) %>%
+  summarize(medianAbsoluteAbundance = median(abs.abun)) %>%
+  filter(medianAbsoluteAbundance > 0) %>%
+  arrange(desc(medianAbsoluteAbundance)) %>%
   left_join(zymo.tax.form) %>%
-  mutate(batch = "2")
+  mutate(batch = "2",
+         diet = "HFD")
 ```
 # Combine
 
