@@ -495,3 +495,33 @@ relabun.w %>%
   summarize(prev = mean(prev)) %>%
   pivot_wider(names_from = "tissue", values_from = "prev")
 ```
+
+# Check overlap of microbe presence in different sample types
+
+```{r}
+tissue.sources <- metadata %>%
+  filter(tissue %in% c("Lung", "Pellet")) %>%
+  select(tissue, sample) %>%
+  left_join(relabun.w) %>%
+  pivot_longer(-c("tissue", "sample"), names_to = "microbe", values_to = "count") %>%
+  filter(count > 0) %>%
+  ungroup() %>%
+  select(tissue, microbe) %>%
+  distinct()
+
+pellet.mics <- filter(tissue.sources, tissue == "Pellet")$microbe
+lung.mics <- filter(tissue.sources, tissue == "Lung")$microbe
+
+both.mics <- intersect(pellet.mics, lung.mics) %>%
+  as.data.frame() %>%
+  mutate(tissue = "Both")
+pellet.mics <- setdiff(pellet.mics, both.mics[,1])%>%
+  as.data.frame() %>%
+  mutate(tissue = "Gut")
+lung.mics <- setdiff(lung.mics, both.mics[,1])%>%
+  as.data.frame() %>%
+  mutate(tissue = "Lung")
+
+mic.key <- bind_rows(both.mics, pellet.mics, lung.mics)
+saveRDS(mic.key, "../data/microbes_found-in-tissues.rds")
+```
