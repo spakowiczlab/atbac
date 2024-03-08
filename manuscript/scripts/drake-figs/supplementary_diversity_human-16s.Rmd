@@ -1,0 +1,41 @@
+---
+title: "diversity_human-16s"
+output: html_document
+date: "2023-12-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(vegan)
+```
+
+# Load data
+
+```{r}
+load("prepared-data/human-div.rda")
+```
+
+# Richness
+
+```{r}
+human.div$spec.counts %>%
+  ggplot(aes(x = BMI, y = n)) +
+  geom_boxplot() +
+  labs(y = "Number of species") +
+  theme_bw()
+ggsave("../../figures/boxplot_species-richness-Hs-16s.png")
+```
+
+# Diversity
+
+
+```{r}
+human.div$div.calc %>%
+  ggplot(aes(x = BMI, y = `.`)) +
+  geom_boxplot() +
+  labs(y = "Simpson's diversity") +
+  theme_bw()
+ggsave("../../figures/boxplot_simpsons-Hs-16s.png")
+```

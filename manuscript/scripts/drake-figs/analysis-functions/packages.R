@@ -1,0 +1,15 @@
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(tibble)
+library(ggdendro)
+library(vegan)
+library(forcats)
+library(broom)
+library(purrr)
+library(readr)
+library(survival)
+library(survminer)
+
+# Available through github/spakowiczlab
+library(tmesig)

@@ -13,19 +13,10 @@ library(RColorBrewer)
 library(ggrepel)
 ```
 
-
-# Drake targets
-
-```{r}
-loadd(samples.bmi.firmicutes)
-loadd(taxcounts.nocontam.phyl)
-loadd(sourceres)
-loadd(bacteria.desres)
-```
-
-# Addt. sample order label
+# B0: Addt. sample order label
 
 ```{r}
+load("prepared-data/sample-bmi-firmicutes.rda")
 samples.bmi.firmicutes %>%
   mutate(count = 1) %>%
   ggplot(aes(x=0, y = count, fill = BMI)) +
@@ -36,9 +27,12 @@ samples.bmi.firmicutes %>%
   # ggsave("../figures/BMI-labels-for-ordered-stack.pdf", width = 10, height = 1)
 ```
 
-# Stacked bar: Phyla level bacteria
+# B1: Stacked bar: Phyla level bacteria
 
 ```{r}
+load("prepared-data/sample-bmi-firmicutes.rda")
+load("prepared-data/taxcounts-nocontam-phyl.rda")
+
 getPalette <- colorRampPalette(brewer.pal(11, "Spectral"))
 phyls <- unique(as.character(taxcounts.nocontam.phyl$Phylum))
 use.palette <- getPalette(14)
@@ -65,9 +59,11 @@ taxcounts.nocontam.phyl %>%
          width = 7)
 ```
 
-# Stacked bar: Sourcetracker results
+# C: Stacked bar: Sourcetracker results
 
 ```{r}
+load("prepared-data/sample-bmi-firmicutes.rda")
+load("prepared-data/sourceres.rda")
 sourceres  %>%
   gather(!SampleID, key = "Source", value = "prop") %>%
   mutate(Source = ifelse(Source == "Unknown", "Other", Source)) %>%
@@ -80,32 +76,33 @@ sourceres  %>%
   scale_fill_brewer(palette = "Dark2", na.value = "grey50") +
   labs(x = "", y = "") +
   theme_bw() +
-  theme(axis.text.x = element_blank()) +
-  ggsave("../../figures/stacked-bar_sourcetracker.pdf",
-         height = 4,
-         width = 6) +
-  ggsave("../../figures/stacked-bar_sourcetracker.png",
-         height = 4,
-         width = 7)
+  theme(axis.text.x = element_blank()) 
+ggsave("../../figures/stacked-bar_sourcetracker.pdf",
+       height = 4,
+       width = 6) 
+ggsave("../../figures/stacked-bar_sourcetracker.png",
+       height = 4,
+       width = 7)
 ```
 
-# DESeq results volcano plot
+# D: DESeq results volcano plot
 
 ```{r}
-tax <- readRDS("../../../exploratory/data/taxf_update.RDS") %>%
-  as.data.frame() %>%
-  rownames_to_column(var = "Sequence")
-
-proteotax <- tax %>%
-  filter(Phylum == "Proteobacteria") %>%
-  select(-Kingdom) %>%
-  pivot_longer(-"Sequence", names_to = "Taxa.level", values_to = "Taxa") %>%
-  drop_na() %>%
-  select(-Sequence) %>%
-  mutate(proteobacteria = "Proteobacteria")
+# tax <- readRDS("../../../exploratory/data/taxf_update.RDS") %>%
+#   as.data.frame() %>%
+#   rownames_to_column(var = "Sequence")
+# 
+# proteotax <- tax %>%
+#   filter(Phylum == "Proteobacteria") %>%
+#   select(-Kingdom) %>%
+#   pivot_longer(-"Sequence", names_to = "Taxa.level", values_to = "Taxa") %>%
+#   drop_na() %>%
+#   select(-Sequence) %>%
+#   mutate(proteobacteria = "Proteobacteria")
 ```
 
 ```{r}
+load("prepared-data/bacteria-desres.rda")
 bacteria.desres %>%
   mutate(colgroup = ifelse(pvalue < 0.1, Taxa.Level, NA)) %>%
   ggplot(aes(x = log2FoldChange, y = -log(pvalue), color = colgroup)) +
@@ -125,23 +122,20 @@ ggsave("../../figures/volcano_deseq2-DNA-results.png",
        height = 2, width = 3, dpi = 300)
 
 
-bacteria.desres %>%
-  left_join(proteotax) %>%
-  mutate(proteobacteria = replace_na(proteobacteria, "Not Proteobacteria")) %>%
-  mutate(colgroup = ifelse(pvalue < 0.1, Taxa.Level, NA)) %>%
-  ggplot(aes(x = log2FoldChange, y = -log(pvalue), color = colgroup, shape = proteobacteria)) +
-  geom_point() +
-  geom_text_repel(aes(label = ifelse(!is.na(colgroup), Taxa, NA)),
-                  size = 3, 
-                  show.legend = FALSE) +
-  geom_hline(yintercept = -log(.1), linetype = "dashed") +
-  geom_vline(xintercept = -2, linetype = "dashed") +
-  geom_vline(xintercept = 2, linetype = "dashed") +
-  scale_color_brewer(palette = "Dark2", na.value = "grey50", name = "Taxonomy Level") +
-  theme_bw(base_size = 10) 
-# theme(legend.position = c(0.15, 0.2),
-#       legend.box.background = element_rect(color = "black"))
-# ggsave("../../figures/volcano_deseq2-DNA-results.pdf") 
-ggsave("../../figures/volcano_deseq2-DNA-results_proteobacteria.png",
-         height = 2, width = 3, dpi = 300)
+# bacteria.desres %>%
+#   left_join(proteotax) %>%
+#   mutate(proteobacteria = replace_na(proteobacteria, "Not Proteobacteria")) %>%
+#   mutate(colgroup = ifelse(pvalue < 0.1, Taxa.Level, NA)) %>%
+#   ggplot(aes(x = log2FoldChange, y = -log(pvalue), color = colgroup, shape = proteobacteria)) +
+#   geom_point() +
+#   geom_text_repel(aes(label = ifelse(!is.na(colgroup), Taxa, NA)),
+#                   size = 3, 
+#                   show.legend = FALSE) +
+#   geom_hline(yintercept = -log(.1), linetype = "dashed") +
+#   geom_vline(xintercept = -2, linetype = "dashed") +
+#   geom_vline(xintercept = 2, linetype = "dashed") +
+#   scale_color_brewer(palette = "Dark2", na.value = "grey50", name = "Taxonomy Level") +
+#   theme_bw(base_size = 10) 
+# ggsave("../../figures/volcano_deseq2-DNA-results_proteobacteria.png",
+#          height = 2, width = 3, dpi = 300)
 ```

@@ -52,7 +52,7 @@ bind_rows(blood.accession, vat.accession) %>%
 # PCA zymo data
 
 ```{r}
-zymo.seqtab <- read.csv("../../data/zr8258.16S_220923.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_Abundance_Table.csv")
+zymo.seqtab <- read.csv("../../data/mouse-data/first-experiment/ASV_Abundance_Table.csv")
 
 zymo.seqmeta <- zymo.seqtab %>%
   select(seqs) %>%
@@ -136,7 +136,7 @@ ggsave("../../figures/boxplot_zymo_distance-from-gavage.png", width = 4, height 
 # Boxplots absolute abundance
 
 ```{r}
-zymo.abun.abs <- read.csv("../../data/zr8258.16S_220923.zymo/00...AllSamples.Bac16Sv34/Sample_Information/absolute.abundance.csv")
+zymo.abun.abs <- read.csv("../../data/mouse-data/first-experiment/absolute.abundance.csv")
 
 stool.samps <- zymo.abun.abs %>%
   separate(customer_label, into = c("gavage", "diet", "timepoint")) %>%

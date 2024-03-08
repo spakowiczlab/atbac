@@ -1,0 +1,43 @@
+---
+title: "Distance between tissue types"
+output: html_document
+date: "2023-12-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+# library(vegan)
+library(eulerr)
+```
+
+# Load data
+
+```{r}
+load("prepared-data/mouse-distances.rda")
+```
+
+# Formatting
+
+
+
+# Bray-Curtis distance
+
+
+```{r}
+bc.plot %>%
+  ggplot(aes(x = tissue, y = distance)) +
+  geom_boxplot() +
+  theme_bw()
+ggsave("../../figures/bray-curtis_vat-lung-pellet.png")
+```
+
+# Venn diagram shared species
+
+```{r}
+png("../../figures/euler_mouse-tissue-overlap.png")
+plot(euldat)
+dev.off()
+
+```

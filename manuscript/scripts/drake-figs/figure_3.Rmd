@@ -1,205 +1,164 @@
 ---
-title: "Figure 2"
+title: "Figure 3"
 author: "Rebecca Hoyd"
-date: "3/19/2021"
+date: "3/8/2024"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
-library(ggplot2)
-library(ggfortify)
-library(ggforce)
-library(dplyr)
-library(ggExtra)
-library(ggforce)
+library(tidyverse)
+library(ggrepel)
 ```
 
 
-# Drake targets
+# F: Volcano original mouse experiment
+
 ```{r}
-loadd(GenePath.meta)
-loadd(pca.bldvat.exprs)
+load("prepared-data/zymo-old.rda")
 ```
 
-# Panel A: PCA results
+```{r}
+volplot %>%
+  mutate(textlab_genus = if_else(grepl("g_", textlab),
+                                 true = textlab,
+                                 false = NA_character_)) %>%
+  mutate(textlab_trunc = gsub("\\w__(.*)", "\\1", textlab)) %>%
+  mutate(textlab_trunc_red = if_else(grepl(".*ales$|.*aceae$", textlab_trunc),
+                                     true = NA_character_,
+                                     false = textlab_trunc)) %>%
+  mutate(textlab_trunc_red = if_else(grepl("Parab", textlab_trunc_red),
+                                     true = "Paraburkholderia insula",
+                                     false = textlab_trunc_red)) %>%
+  mutate(Taxonomy = if_else(grepl("c", taxlev),
+                               true = "Class",
+                               false = if_else(grepl("f", taxlev),
+                               true = "Family",
+                               false = if_else(grepl("g", taxlev),
+                               true = "Genus",
+                               false = if_else(grepl("o", taxlev),
+                               true = "Order",
+                               false = if_else(grepl("s", taxlev),
+                               true = "Species",
+                               false = taxlev)))))) %>%
+  mutate(Taxonomy = fct_relevel(Taxonomy, c("Species", "Genus", "Family", "Order", "Class"))) %>%
+  filter(!inf.rescale %in% c(-10,10) & !is.na(inf.rescale)) %>%
+  filter(!term %in% c("f__NA", "g__NA")) %>%
+  ggplot(aes(x = inf.rescale, y = -log(p.value))) +
+  geom_vline(xintercept = 2, lty = 2, color = "grey50") +
+  geom_vline(xintercept = -2, lty = 2, color = "grey50") +
+  geom_hline(yintercept = -log(0.05), lty = 2, color = "grey50") +
+  geom_point(aes(color = Taxonomy)) +
+  geom_text_repel(aes(label = textlab_trunc_red), size = 3,
+                  show.legend = FALSE) +
+  labs(x = "Log2FoldChange") +
+  scale_color_brewer(palette = "Dark2", na.value = "grey") +
+  # xlim(c(-10,10)) +
+  theme_bw(base_size = 8)
+ggsave("../../figures/volcano_HFD_Obese-Lean_VAT.png",
+       height = 2.25, width = 4)
+```
+
+## related table
 
 ```{r}
-pca <- 
-  pca.bldvat.exprs$plotdat %>%
-  mutate(combcat = gsub("\\.", ", ", combcat),
-         combcat = gsub("Blood", "PBN", combcat),
-         combcat = gsub("VAT", "VATN", combcat))
-pca.vars <- summary(pca.bldvat.exprs$pca)$importance[2,]
+write.csv(micmeans, "../../tables/HFD-stool_pvals_VAT.csv", row.names = F)
+```
 
-p1<- ggplot(pca, aes(x = PC1, y = PC2)) +
-  geom_point(aes(color = combcat), alpha = .5, show.legend = TRUE) +
-  # stat_ellipse(geom = "polygon", alpha = .1, type = "norm") +
-  geom_mark_ellipse(aes(fill = combcat), #label = combcat), 
-                 concavity = 5,
-                 expand = 0,
-                 radius = 0,
-                 show.legend = FALSE) +
-  labs(x = paste0("PC1(", pca.vars[1]*100, "%)"),
-       y = paste0("PC2(", pca.vars[2]*100, "%)"))+
-  scale_color_brewer(palette="Dark2") +
-  scale_fill_brewer(palette="Dark2") +
+# G: Volcanic range new mouse experiments
+
+## Proteobacteria shape
+
+```{r}
+load("prepared-data/mouse_vulc-range.rda")
+vulcrange$rangedat.form %>%
+  ggplot(aes(x = patval, y = -log(p.value), shape =  protval)) +
+  geom_point(aes(size = sizeval, fill =direction)) +
+  geom_label_repel(aes(label = pointlab), size = 3) +
+  scale_fill_brewer(palette = "Set1", name = "", labels = c("Depleted\nin Obese", "Enriched\nin Obese")) +
+  scale_x_continuous(breaks = vulcrange$patkey$patnum, labels = vulcrange$patkey$patient) +
+  scale_shape_manual(values = 21:22,
+                     name = "",
+                     breaks = c("Proteobacteria", "Not Proteobacteria"),
+                     labels = c("Proteobacteria", "Others")) +
+  scale_size_manual(breaks = c("a", "b", "c"), 
+                    values = c(1,2,3), 
+                    labels = c("<1", "<2", ">=2"),
+                    name = "FoldChange") +
+  labs(x = "Patient") +
+  guides(fill = guide_legend(override.aes=list(shape=21))) +
   theme_bw() +
-  theme(axis.text = element_blank(), axis.ticks = element_blank(),
-        legend.text = element_text(size = 10),
-        legend.title = element_blank(),
-        axis.title = element_text(size = 10),
-        legend.position = c(0.7, 0.7),
-        legend.box.background = element_rect(color = "black"))
-ggMarginal(p1, groupColour = TRUE, groupFill = TRUE)
-ggsave("../../figures/pca_vat-obesity_no-inset.png",
-         height = 3, width = 4.5)
+  theme(text = element_text(size = 8))
+ggsave("../figures/volcanic-range_mouseexp_legend.png", height = 4, width = 3)
 
-# p2 <- ggplot(pca, aes(x = PC1, y = PC2, color = combcat, fill = combcat, alpha = .5)) +
-#   geom_point(show.legend = FALSE) +
-#   # stat_ellipse(geom = "polygon", alpha = .1, type = "norm", show.legend = F) +
-#   theme_bw() +
-#   labs(x = "", y = "") +
-#   xlim(c(-1.7e5, -1.1e5)) +
-#   ylim(c(-4000, 11000)) +
-#   theme(axis.text = element_blank(), axis.ticks = element_blank(),
-#         legend.text = element_text(size = 10),
-#         legend.title = element_blank(),
-#         axis.title = element_text(size = 10)) +
-#   scale_color_brewer(palette="Dark2") +
-#   scale_fill_brewer(palette="Dark2")
+rangedat.form %>%
+  ggplot(aes(x = patval, y = -log(p.value), shape = protval)) +
+  geom_point(aes(size = sizeval, fill =direction), show.legend = F) +
+  geom_label_repel(aes(label = pointlab), size = 2, show.legend = F) +
+  scale_fill_brewer(palette = "Set1", name = "", labels = c("Depleted\nin Obese", "Enriched\nin Obese")) +
+  scale_x_continuous(breaks = patkey$patnum, labels = patkey$patient) +
+  scale_shape_manual(values = 21:22,
+                     name = "",
+                     breaks = c("Proteobacteria", "Not Proteobacteria"),
+                     labels = c("Proteobacteria", "Others")) +
+  scale_size_manual(breaks = c("a", "b", "c"), 
+                    values = c(1,2,3), 
+                    labels = c("<1", "<2", ">=2"),
+                    name = "FoldChange") +
+  labs(x = "Patient") +
+  theme_bw() +
+  theme(text = element_text(size = 8))
+ggsave("../../figures/volcanic-range_mouseexp.png", height = 3.5, width = 3.5)
+ggsave("../../figures/volcanic-range_mouseexp.svg", height = 3.5, width = 3.5)
+```
+
+## Tissue source shape
+
+```{r}
+# colnames(mickey)[1] <- "term"
+# rangedat.form2 <- rangedat.form %>%
+#   drop_na(direction) %>%
+#   left_join(mickey) %>%
+#   mutate(tissue = replace_na(tissue, "Other"))
 # 
-# p1 +
-#   # annotation_custom(ggplotGrob(p2), 
-#   #                   xmin = 4e5, xmax = 9e5, ymin = 1.5e5, ymax = 6.8e5) +
-#   ggsave("../../figures/figure3/pca_vat-obesity_inset.png",
-#          height = 4, width = 5)
+# 
+# rangedat.form2 %>%
+#   ggplot(aes(x = patval, y = -log(p.value), shape = tissue)) +
+#   geom_point(aes(size = sizeval, fill =direction)) +
+#   geom_label_repel(aes(label = pointlab), size = 3) +
+#   scale_fill_brewer(palette = "Set1", name = "", labels = c("Depleted\nin Obese", "Enriched\nin Obese")) +
+#   scale_x_continuous(breaks = patkey$patnum, labels = patkey$patient) +
+#   # scale_shape(name = "",
+#   #             breaks = c("Proteobacteria", "Not Proteobacteria"), 
+#   #             labels = c("Proteobacteria", "Others")) +
+#   scale_shape_manual(values = 21:24) +
+#   scale_size_manual(breaks = c("a", "b", "c"), 
+#                     values = c(1,2,3), 
+#                     labels = c("<1", "<2", ">=2"),
+#                     name = "FoldChange") +
+#   labs(x = "Patient") +
+#   theme_bw() +
+#   theme(text = element_text(size = 8))
+# ggsave("../../figures/volcanic-range_mouseexp_legend_tissue.png", height = 4, width = 3)
+# 
+# rangedat.form2 %>%
+#   ggplot(aes(x = patval, y = -log(p.value), shape = tissue)) +
+#   geom_point(aes(size = sizeval, fill =direction), show.legend = F) +
+#   geom_label_repel(aes(label = pointlab), size = 2, show.legend = F) +
+#   scale_fill_brewer(palette = "Set1", name = "", labels = c("Depleted\nin Obese", "Enriched\nin Obese")) +
+#   scale_x_continuous(breaks = patkey$patnum, labels = patkey$patient) +
+#   # scale_shape(name = "",
+#   #             breaks = c("Proteobacteria", "Not Proteobacteria"), 
+#   #             labels = c("Proteobacteria", "Others")) +
+#   scale_shape_manual(values = 21:24) +
+#   scale_size_manual(breaks = c("a", "b", "c"), 
+#                     values = c(1,2,3), 
+#                     labels = c("<1", "<2", ">=2"),
+#                     name = "FoldChange") +
+#   labs(x = "Patient") +
+#   theme_bw() +
+#   theme(text = element_text(size = 8))
+# ggsave("../../figures/volcanic-range_mouseexp_tissue.png", height = 3.5, width = 3.5)
+# ggsave("../../figures/volcanic-range_mouseexp_tissue.svg", height = 3.5, width = 3.5)
 ```
-
-# Panel B: Barplots
-
-```{r}
-GenePath.meta %>%
-  filter(obes.stat == "obese") %>%
-  group_by(Gene, Role, source) %>%
-  mutate(counts.m = mean(counts),
-            std.err = sqrt(var(counts)),
-            upper.int = counts.m + std.err,
-            lower.int = counts.m - std.err) %>%
-  ggplot(aes(x = Gene, y = counts.m, fill = source)) +
-  facet_row(vars(Role), scales = "free", space = "free") +
-  geom_col(position = "dodge") +
-  geom_errorbar(aes(ymin = lower.int, ymax = upper.int), position = "dodge") +
-  labs(x = "", y = "Expression") +
-  theme_bw() +
-  theme(
-    # axis.ticks.y = element_blank(),
-    #     axis.text.y = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1)) 
-  # ggsave("../../figures/barplots_pathway-gene-exp_obese.png", width = 15)
-
-
-
-GenePath.meta %>%
-  filter(!is.na(source)) %>%
-  group_by(Gene, Role, source) %>%
-  summarise(counts.m = mean(counts),
-            std.err = sqrt(var(counts)),
-            upper.int = counts.m + std.err,
-            lower.int = counts.m - std.err,
-            log.upper.int = counts.m + (0.434 * (std.err/counts.m)),
-            log.lower.int = counts.m - (0.434 * (std.err/counts.m))) %>%
-  ggplot(aes(x = Gene, y = log(counts.m))) +
-  geom_boxplot(aes(fill = source)) +
-  facet_wrap(~Role, scales = "free", nrow = 2) +
-  # facet_row(vars(Role), scales = "free", space = "free") +
-  # geom_col(position = "dodge") +
-  # geom_errorbar(aes(ymin = log.lower.int, ymax = log.upper.int), position = "dodge") +
-  labs(x = "", y = "Expression") +
-  theme_bw() +
-  theme(
-    # axis.ticks.y = element_blank(),
-    #     axis.text.y = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1)) 
-  ggsave("../../figures/barplots_pathway-gene-exp_all.png", width = 15)
-```
-
-```{r}
-# dodge <- position_dodge(width = 0.4)
-
-pathset1 <- c("Inflammation","Bactericidal Activity/LPS induced genes",
-              "Chemotaxis"
-              # "ROS production", "Inhibition of Apoptosis"
-              )
-
-GenePath.meta %>%
-  drop_na(counts) %>%
-  filter(Role %in% pathset1) %>%
-  mutate(Role = gsub("(.*)/LPS induced genes", "\\1", Role),
-         Role = gsub("ROS production", "ROS", Role),
-         Role = gsub("Inhibition of Apoptosis", "Apoptosis", Role),
-         Role = gsub("Growth Factors", "Growth Factor", Role)) %>%
-  mutate(Role = fct_relevel(Role, "Inflammation")) %>%
-  ggplot(aes(x = Gene, y = log(counts))) +
-  # geom_violin(aes(fill = source), position = dodge) +
-  # geom_point(alpha = 0.5, aes(color = source), show.legend = FALSE,
-  #            position = position_dodge(width = .2))+
-  geom_boxplot(aes(fill = source),
-               show.legend = FALSE) +
-  facet_row(vars(Role), scales = "free", space = "free") +
-  labs(x = "", y = "") +
-  theme_bw() +
-  theme(text = element_text(size = 10),
-        axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_color_brewer(palette="Dark2") +
-  scale_fill_brewer(palette="Dark2") 
-ggsave("../../figures/pathway-genes_boxplot_1.png", 
-       height = 2, width = 5.7)
-
-GenePath.meta %>%
-  drop_na(counts) %>%
-  filter(!Role %in% pathset1) %>%
-  mutate(Role = gsub("(.*)/LPS induced genes", "\\1", Role),
-         Role = gsub("ROS production", "ROS", Role),
-         Role = gsub("Inhibition of Apoptosis", "Apoptosis", Role),
-         Role = gsub("Growth Factors", "Growth Factor", Role)) %>%
-  mutate(Role = fct_relevel(Role, "Inflammation")) %>%
-  ggplot(aes(x = Gene, y = log(counts))) +
-  # geom_violin(aes(fill = source), position = dodge) +
-  # geom_point(alpha = 0.5, aes(color = source), show.legend = FALSE,
-  #            position = position_dodge(width = .2))+
-  geom_boxplot(aes(fill = source),
-               show.legend = FALSE) +
-  facet_row(vars(Role), scales = "free", space = "free") +
-  labs(x = "", y = "") +
-  theme_bw() +
-  theme(text = element_text(size = 10),
-        axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_color_brewer(palette="Dark2") +
-  scale_fill_brewer(palette="Dark2") 
-ggsave("../../figures/pathway-genes_boxplot_2.png", 
-       height = 2, width = 5.7)
-
-GenePath.meta %>%
-  drop_na(counts) %>%
-  filter(!Role %in% pathset1) %>%
-  ggplot(aes(x = Gene, y = log(counts))) +
-  # geom_violin(aes(fill = source), position = dodge) +
-  # geom_point(alpha = 0.5, aes(color = source), show.legend = FALSE,
-  #            position = position_dodge(width = .2))+
-  geom_boxplot(aes(fill = source),
-               show.legend = T) +
-  facet_row(vars(Role), scales = "free", space = "free") +
-  labs(x = "", y = "") +
-  theme_bw() +
-  theme(text = element_text(size = 10),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "top") +
-  scale_color_brewer(palette="Dark2") +
-  scale_fill_brewer(palette="Dark2", name = "")
-ggsave("../../figures/pathway-genes_boxplot_legend.png", 
-       height = 2, width = 5.2)
-```
-
 

@@ -1,45 +1,117 @@
 ---
-title: "Figure 6"
-author: "YunZhou Liu"
-date: "7/13/2021"
+title: "Figure 2"
+author: "Rebecca Hoyd"
+date: "3/19/2021"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
 library(ggplot2)
+library(forcats)
+library(ggdendro)
 ```
 
+# Drake targets
 
-#load objects from drake
 ```{r}
-loadd(TCGA_box_dat)
-loadd(TCGA_surv_dat)
-loadd(canc.df)
-loadd(neut)
-loadd(GTEx_box_dat)
+loadd(siggenes.long)
+loadd(siggenes.celldend)
+loadd(siggenes.enriched)
+loadd(deconvolved.fractions)
 ```
 
+# Panel A
+
+## Heatmap
 
 ```{r}
+load("prepared-data/siggenes-long.rda")
+siggenes.long %>%
+  ggplot(aes(x = gene,
+         y = celltype,
+         fill = log(counts))) +
+  geom_tile(show.legend = F) +
+  labs(x = "", y = "") +
+  scale_fill_distiller(palette = "YlOrRd", type = "seq") +
+  theme_void() +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.y = element_text(hjust = 0)) 
+ggsave("../../figures/heatmap_ggplot_neutsig.pdf", height = 5, width = 7)
+```
+
+## Dendrogram
+
+```{r}
+load("prepared-data/siggenes-celldend.rda")
+ggdendrogram(siggenes.celldend, rotate = T)
+  ggsave("../../figures/dendrogram_signature-matrix-immunecells.pdf")
+```
+
+# Panel C: Bar plot
+
+```{r}
+load("prepared-data/siggenes-enriched.rda")
+ggplot(siggenes.enriched, aes(x = reorder(NAME, difference), y = difference)) +
+  geom_col(aes(fill = celltype)) +
+  scale_fill_manual(breaks = c("at", "blood"), values = c("orange", "darkred"),
+                    labels = c("AT", "Blood"), name = "") +
+  labs(title = "Greatest differences between blood and adipose tissue neutrophil \nsignal genes", x = "",
+       y = "Difference in signal gene counts") +
+  coord_flip() +
+  theme_bw()
+ggsave("../../figures/Fig5_LDA_blood-vat.png")
+```
+
+# Panel C: Stacked Bar, with boxplot inset
+
+```{r}
+load("prepared-data/deconvolved-fractions.rda")
+deconvolved.fractions %>%
+  ggplot(aes(x = Input.Sample, 
+             y = predfrac, 
+             fill = fct_relevel(celltype, "Other", "V.neutrophil", "Blood.neutrophil"))) + 
+  geom_col() +
+  facet_wrap(vars(ifelse(source == "blood", "Blood", "VAT")),  
+             scales = "free_x")+
+  scale_fill_manual(breaks = c("Other", "V.neutrophil", "Blood.neutrophil"), 
+                    values = c("grey", "bisque", "firebrick"),
+                    labels = c("Other", "VAT neutrophil", "Blood neutrophil"),
+                    name = "Predicted Cell Type") +
+  labs(x = "", y = "Cell fraction") +
+  theme_bw(base_size = 10) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) 
+ggsave("../../figures/Fig5_stackedbar.pdf", height = 2, width = 4)
+ggsave("../../figures/Fig5_stackedbar.png", height = 2, width = 5.5)
+```
+
+# D: GTex boxplot
+
+```{r}
+load("prepared-data/GTEx_box_dat.rda")
+
 ggplot()+
-  geom_rect(data = GTEx_box_dat$numpatkey, mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 1, fill=type), inherit.aes = F,show.legend = F, alpha = 0.3)+
-  geom_boxplot(data = GTEx_box_dat$GTEx_plot, aes(x = as.factor(patnum), y = relative_abundance, fill = cell_type), inherit.aes = F, show.legend = T, outlier.size = 0.3)+
+  geom_rect(data = GTEx_box_dat$numpatkey, mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 1, fill=type), 
+            inherit.aes = F,show.legend = F, alpha = 0.3)+
+  geom_boxplot(data = GTEx_box_dat$GTEx_plot, aes(x = as.factor(patnum), y = relative_abundance, fill = cell_type), 
+               inherit.aes = F, show.legend = T, outlier.size = 0.3)+
   scale_x_discrete(breaks = unique(GTEx_box_dat$numpatkey$patnum), labels = unique(GTEx_box_dat$numpatkey$Tissue))+
   theme_bw(base_size = 10) +
   scale_fill_manual(values=c("tomato","gold"), breaks = c("Blood Neutrophil","VAT Neutrophil"), name = "Neutrophil Type")+
   xlab("Tissue")+
   ylab("Relative Abundance")+
   coord_flip()
-  ggsave("../../figures/GTEx_VAT.png", height = 4, width = 5)
-  
-  #no underscore...(legend)
-  #cap the legend title
+ggsave("../../figures/GTEx_VAT.png", height = 4, width = 5)
 ```
 
-#COAD box plot
-```{r cars}
+E: TCGA COAD boxplot
+
+```{r}
+load("prepared-data/TCGA_box_data.rda")
 ggplot()+
-  geom_rect(data = TCGA_box_dat$numtissuekey, mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 0.6, fill=type), inherit.aes = F,show.legend = F, alpha = 0.3)+
+  # geom_rect(data = TCGA_box_dat$numtissuekey, mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 0.6, fill=type), inherit.aes = F,show.legend = F, alpha = 0.3)+
   geom_boxplot(data = TCGA_box_dat$dat_plot, aes(x = as.factor(patnum), y = relative_abundance, fill = cell_type), inherit.aes = F, show.legend = T)+
   scale_x_discrete(breaks = unique(TCGA_box_dat$numtissuekey$patnum), labels = unique(TCGA_box_dat$numtissuekey$Tissue))+
   theme(axis.text.x = element_text(size=10, angle=0))+
@@ -52,46 +124,40 @@ ggsave("../../figures/COAD_VAT.png", height = 3, width = 4)
 
 ```
 
+# F: TCGA survival
 
-#hoyd plot for threshold
-```{r}
-ggplot(canc.df, aes(x=Percentiles, y=pval))+
-  geom_line(aes(color = `hazard ratio`, group=1))+
-  geom_hline(yintercept = log(0.05))+
-  ylab("log(pval)")+
-  theme_bw()
-  ggsave("../../figures/hoyd_COAD.png", height = 10, width = 15)
-  #legend title: hazard ratio or 
-  #less than / greater than 1
-  #cap axis title
-```
-
-
-#Survival
 ```{r pressure, echo=FALSE}
-ggsurvplot_facet(TCGA_surv_dat$surv_plot_Blo, TCGA_surv_dat$SURV_d, facet.by = "Tissue", scales = "free_x") +
-  theme_bw()
-ggsave("../../figures/COAD_surv_Blo.png", height = 3, width = 3)
+load("prepared-data/TCGA_surv_dat.rda")
+# ggsurvplot_facet(TCGA_surv_dat$surv_plot_Blo, TCGA_surv_dat$SURV_d, facet.by = "Tissue", scales = "free_x") +
+#   theme_bw()
+# ggsave("../../figures/COAD_surv_Blo.png", height = 3, width = 3)
 ggsurvplot_facet(TCGA_surv_dat$surv_plot_VAT, TCGA_surv_dat$SURV_d, facet.by = "Tissue", scales = "free_x") +
   theme_bw()
 ggsave("../../figures/COAD_surv_VAT.png", height = 3, width = 3)
 
 ```
 
+# G: Single Cell signatures
 
-# micro vs. neutrophil
 ```{r}
-ggplot(neut,aes(x=sum.ra, y=relative_abundance,color=cell_type))+
-  geom_point()+
-  geom_smooth(method = "lm")+
-  facet_wrap(~Tissue, scales = "free")+
-  theme_bw()+
-  theme(axis.text.x = element_text(size = 7))+
-  ylab("Neutrophil relative abundance")+
-  xlab("Gram negative microbs relative abundance")
-  ggsave("../../figures/COAD.micro_neut.png")
-  
-  #try log() plot to spread the dots
-  #
-  
+load("prepared-data/scrna-sig-score.rda")
+
+vlike <- 0.2
+tmpsplit <- scrna.sig.score %>%
+  mutate(sig_score_2 = ifelse(sig_score > 1,1,sig_score),
+         fcode = ifelse(sig_score > vlike, "VAT like", "Blood like")) 
+tmpsol <- scrna.sig.score %>%
+  mutate(sig_score_2 = ifelse(sig_score > 1,1,sig_score),
+         fcode = "All neutrophils") 
+
+bind_rows(tmpsplit, tmpsol) %>%
+  ggplot(aes(x = umap_1, y = umap_2)) + 
+  facet_wrap(vars(fcode)) +
+  geom_point(aes(colour = sig_score_2), alpha = .5) +
+  labs(x = "umap 1", y = "umap 2") +
+  scale_color_viridis(direction = -1, option = "A", name = "VAT Neutrophil Score") +
+  theme_bw()  +
+  theme(text = element_text(size = 9),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("../../figures/umap_facet-vatlike.png", height = 1.9, width = 7)
 ```
