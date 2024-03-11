@@ -103,8 +103,10 @@ mousedist <- mouseDistances()
 bc.plot <- mousedist$bc.plot
 euldat <- mousedist$euldat
 vulcrange <- mouseVulcRange()
+zymo.tissuedat <- mouseTissueBox()
 
 save(volplot, micmeans, file = "prepared-data/zymo-old.rda")
 save(mousedist, euldat, file = "prepared-data/mouse-distances.rda")
 save(vulcrange, file = "prepared-data/mouse_vulc-range.rda")
+save(zymo.tissuedat, file = "prepared-data/mouse_tissuebox.rda")
 
