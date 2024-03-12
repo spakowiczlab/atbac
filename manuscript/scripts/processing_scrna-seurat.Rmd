@@ -16,7 +16,7 @@ library(Seurat)
 
 # Load data
 
-"scrna" is the seurat object from the paper: https://www.nature.com/articles/s41597-023-02074-6. It is also available as source data.
+"scrna" is the seurat object from the paper: https://www.nature.com/articles/s41597-023-02074-6.
 
 ```{r}
 scrna <- readRDS("/fs/ess/PAS1695/projects/atbac/data/scRNA/refquery_final.rds")

@@ -123,6 +123,7 @@ distmat %>%
              # fill = diet.group
              )) +
   geom_boxplot(fill = "grey") +
+  geom_point() +
   labs(x = "Time point", y = "Similarity to Gavage") +
   scale_x_discrete(breaks = c("Pre", "Post", "End"),
           labels = c("Pre-ABx", "Post-ABx", 
@@ -147,6 +148,7 @@ stool.samps <- zymo.abun.abs %>%
 stool.samps %>%
   ggplot(aes(x = timepoint, y = log(gene_copies_per_ul))) +
   geom_boxplot() +
+  geom_point() +
   scale_x_discrete(breaks = c("Pre", "Pos", "End"),
           labels = c("Pre-antibiotic", "Post-antibiotic", 
                      "Study end")) +

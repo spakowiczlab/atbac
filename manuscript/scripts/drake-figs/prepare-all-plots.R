@@ -75,14 +75,15 @@ TCGA_box_dat = TCGA_box(TCGA_deconv$TCGA_CUS, TCGA_deconv$TCGA_LM,"COAD")
 TCGA_SURV_info = pull_TCGA_surv()
 TCGA_surv_dat = TCGA_SURV(TCGA_box_dat$TCGA_dat, TCGA_SURV_info$ALL_CLI, TCGA_SURV_info$ALL_MAN,"COAD")
 canc.df = TCGA_hoyd(TCGA_surv_dat$SURV_d,"COAD")
-clinical = read.csv("../../data/clinical.csv",stringsAsFactors = F)
 
-# The object referred to here as ra_COAD is available in the source data file X
-ra_COAD = read.csv(file.path(paths$ra_COAD, "ra_COAD.csv"),stringsAsFactors = F)
+# These analyses are not included in the final version of the paper.
+# clinical = read.csv("../../data/clinical.csv",stringsAsFactors = F)
+# ra_COAD = read.csv(file.path(paths$ra_COAD, "ra_COAD.csv"),stringsAsFactors = F)
 # collected from website (https://globalrph.com/bacteriacat/gram-negative-bacteria/)
-gram_neg_list = read.csv("../../data/gram negative list.csv")%>%
-  mutate(gram.negative = trimws(gram.negative, which = c("both")))
-neut = TCGA_micro_neut(clinical, ra_COAD,gram_neg_list,TCGA_box_dat$dat_plot)
+# gram_neg_list = read.csv("../../data/gram negative list.csv")%>%
+#   mutate(gram.negative = trimws(gram.negative, which = c("both")))
+# neut = TCGA_micro_neut(clinical, ra_COAD,gram_neg_list,TCGA_box_dat$dat_plot)
+
 GTEx_Portal = read_csv("../../data/GTEX_v8_sample-location-key.csv")
 GTEx_dat = pull_GTEx()
 GTEx_box_dat = GTEx_box(GTEx_Portal,GTEx_dat)
@@ -90,7 +91,7 @@ GTEx_box_dat = GTEx_box(GTEx_Portal,GTEx_dat)
 save(TCGA_box_dat, file = "prepared-data/TCGA_box_data.rda")
 save(TCGA_surv_dat, file = "prepared-data/TCGA_surv_dat.rda")
 save(canc.df, file = "prepared-data/canc-df.rda")
-save(neut, file = "prepared-data/neut.rda")
+# save(neut, file = "prepared-data/neut.rda")
 save(GTEx_box_dat, file = "prepared-data/GTEx_box_dat.rda")
 
 

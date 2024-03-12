@@ -62,17 +62,15 @@ load("prepared-data/zymo-old.rda")
 ```
 
 ```{r}
-volplot %>%
-  mutate(textlab_genus = if_else(grepl("g_", textlab),
-                                 true = textlab,
-                                 false = NA_character_)) %>%
-  mutate(textlab_trunc = gsub("\\w__(.*)", "\\1", textlab)) %>%
-  mutate(textlab_trunc_red = if_else(grepl(".*ales$|.*aceae$", textlab_trunc),
+volplot.form <- volplot %>%
+  mutate(textlab_trunc = gsub("\\w__(.*)", "\\1", textlab),
+         textlab_trunc_red = if_else(grepl(".*ales$|.*aceae$", textlab_trunc),
                                      true = NA_character_,
-                                     false = textlab_trunc)) %>%
-  mutate(textlab_trunc_red = if_else(grepl("Parab", textlab_trunc_red),
+                                     if_else(grepl("Parab", textlab_trunc),
                                      true = "Paraburkholderia insula",
-                                     false = textlab_trunc_red)) %>%
+                                     false = textlab_trunc)),
+         textlab_plotmath = ifelse(taxlev %in% c("g", "s"), paste0("italic(", gsub(" ", "~", textlab_trunc_red), ")"), textlab_trunc_red)
+         ) %>%
   mutate(Taxonomy = if_else(grepl("c", taxlev),
                                true = "Class",
                                false = if_else(grepl("f", taxlev),
@@ -86,18 +84,22 @@ volplot %>%
                                false = taxlev)))))) %>%
   mutate(Taxonomy = fct_relevel(Taxonomy, c("Species", "Genus", "Family", "Order", "Class"))) %>%
   filter(!inf.rescale %in% c(-10,10) & !is.na(inf.rescale)) %>%
-  filter(!term %in% c("f__NA", "g__NA")) %>%
+  filter(!term %in% c("f__NA", "g__NA"))
+
+volplot.form %>%
   ggplot(aes(x = inf.rescale, y = -log(p.value))) +
   geom_vline(xintercept = 2, lty = 2, color = "grey50") +
   geom_vline(xintercept = -2, lty = 2, color = "grey50") +
   geom_hline(yintercept = -log(0.05), lty = 2, color = "grey50") +
   geom_point(aes(color = Taxonomy)) +
-  geom_text_repel(aes(label = textlab_trunc_red), size = 3,
-                  show.legend = FALSE) +
-  labs(x = "Log2FoldChange") +
+  geom_text_repel(aes(label = textlab_plotmath), size = 2.5,
+                  show.legend = FALSE,
+                  parse = T) +
+  labs(x = "log(fold change, base=2)", y = "-log(p value)") +
   scale_color_brewer(palette = "Dark2", na.value = "grey") +
   # xlim(c(-10,10)) +
-  theme_bw(base_size = 8)
+  theme_bw(base_size = 8) +
+  theme(axis.title = element_text(family = "Times New Roman"))
 ggsave("../../figures/volcano_HFD_Obese-Lean_VAT.png",
        height = 2.25, width = 4)
 ```

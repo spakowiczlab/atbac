@@ -13,15 +13,6 @@ library(forcats)
 library(ggdendro)
 ```
 
-# Drake targets
-
-```{r}
-loadd(siggenes.long)
-loadd(siggenes.celldend)
-loadd(siggenes.enriched)
-loadd(deconvolved.fractions)
-```
-
 # Panel A
 
 ## Heatmap

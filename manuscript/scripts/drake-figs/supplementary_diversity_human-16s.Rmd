@@ -23,6 +23,7 @@ load("prepared-data/human-div.rda")
 human.div$spec.counts %>%
   ggplot(aes(x = BMI, y = n)) +
   geom_boxplot() +
+  geom_point() +
   labs(y = "Number of species") +
   theme_bw()
 ggsave("../../figures/boxplot_species-richness-Hs-16s.png")
@@ -35,7 +36,15 @@ ggsave("../../figures/boxplot_species-richness-Hs-16s.png")
 human.div$div.calc %>%
   ggplot(aes(x = BMI, y = `.`)) +
   geom_boxplot() +
+  geom_point() +
   labs(y = "Simpson's diversity") +
   theme_bw()
 ggsave("../../figures/boxplot_simpsons-Hs-16s.png")
+```
+
+# KW tests
+
+```{r}
+kruskal.test(human.div$div.calc$. ~ human.div$div.calc$BMI)
+kruskal.test(human.div$spec.counts$n ~ human.div$spec.counts$BMI)
 ```
