@@ -8,9 +8,11 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(ggplot2)
-library(forcats)
+library(tidyverse)
 library(ggdendro)
+library(survival)
+library(survminer)
+library(viridis)
 ```
 
 # Panel A
@@ -19,6 +21,10 @@ library(ggdendro)
 
 ```{r}
 load("prepared-data/siggenes-long.rda")
+
+cells <- unique(siggenes.long$celltype)
+cells.rename <- gsub("Visceral AT", "VAT Isolated", cells)
+
 siggenes.long %>%
   ggplot(aes(x = gene,
          y = celltype,
@@ -26,11 +32,12 @@ siggenes.long %>%
   geom_tile(show.legend = F) +
   labs(x = "", y = "") +
   scale_fill_distiller(palette = "YlOrRd", type = "seq") +
+  scale_y_discrete(breaks = cells, labels = cells.rename) +
   theme_void() +
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
-        axis.text.y = element_text(hjust = 0)) 
-ggsave("../../figures/heatmap_ggplot_neutsig.pdf", height = 5, width = 7)
+        axis.text.y = element_text(hjust = 0, size = 7)) 
+ggsave("../../figures/heatmap_ggplot_neutsig.png", height = 2.7, width = 4)
 ```
 
 ## Dendrogram
@@ -41,25 +48,27 @@ ggdendrogram(siggenes.celldend, rotate = T)
   ggsave("../../figures/dendrogram_signature-matrix-immunecells.pdf")
 ```
 
-# Panel C: Bar plot
-
-```{r}
-load("prepared-data/siggenes-enriched.rda")
-ggplot(siggenes.enriched, aes(x = reorder(NAME, difference), y = difference)) +
-  geom_col(aes(fill = celltype)) +
-  scale_fill_manual(breaks = c("at", "blood"), values = c("orange", "darkred"),
-                    labels = c("AT", "Blood"), name = "") +
-  labs(title = "Greatest differences between blood and adipose tissue neutrophil \nsignal genes", x = "",
-       y = "Difference in signal gene counts") +
-  coord_flip() +
-  theme_bw()
-ggsave("../../figures/Fig5_LDA_blood-vat.png")
-```
-
 # Panel C: Stacked Bar, with boxplot inset
 
 ```{r}
 load("prepared-data/deconvolved-fractions.rda")
+deconvolved.fractions %>%
+  ggplot(aes(x = Input.Sample, 
+             y = predfrac, 
+             fill = fct_relevel(celltype, "Other", "V.neutrophil", "Blood.neutrophil"))) + 
+  geom_col(show.legend = F) +
+  facet_wrap(vars(ifelse(source == "blood", "Blood", "VAT")),  
+             scales = "free_x")+
+  scale_fill_manual(breaks = c("Other", "V.neutrophil", "Blood.neutrophil"), 
+                    values = c("grey", "bisque", "firebrick"),
+                    labels = c("Other", "VIN-type neutrophil", "Blood neutrophil"),
+                    name = "Predicted Cell Type") +
+  labs(x = "", y = "Cell fraction") +
+  theme_bw(base_size = 10) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) 
+# ggsave("../../figures/Fig5_stackedbar.pdf", height = 2, width = 4)
+ggsave("../../figures/Fig5_stackedbar.png", height = 2, width = 3.6)
+
 deconvolved.fractions %>%
   ggplot(aes(x = Input.Sample, 
              y = predfrac, 
@@ -69,13 +78,13 @@ deconvolved.fractions %>%
              scales = "free_x")+
   scale_fill_manual(breaks = c("Other", "V.neutrophil", "Blood.neutrophil"), 
                     values = c("grey", "bisque", "firebrick"),
-                    labels = c("Other", "VAT neutrophil", "Blood neutrophil"),
+                    labels = c("Other", "VIN-type neutrophil", "Blood neutrophil"),
                     name = "Predicted Cell Type") +
   labs(x = "", y = "Cell fraction") +
   theme_bw(base_size = 10) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) 
-ggsave("../../figures/Fig5_stackedbar.pdf", height = 2, width = 4)
-ggsave("../../figures/Fig5_stackedbar.png", height = 2, width = 5.5)
+# ggsave("../../figures/Fig5_stackedbar.pdf", height = 2, width = 4)
+ggsave("../../figures/Fig5_stackedbar_legend.png", height = 2, width = 3.6)
 ```
 
 # D: GTex boxplot
@@ -84,13 +93,19 @@ ggsave("../../figures/Fig5_stackedbar.png", height = 2, width = 5.5)
 load("prepared-data/GTEx_box_dat.rda")
 
 ggplot()+
-  geom_rect(data = GTEx_box_dat$numpatkey, mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 1, fill=type), 
+  geom_rect(data = GTEx_box_dat$numpatkey,
+            mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 1, fill=type), 
             inherit.aes = F,show.legend = F, alpha = 0.3)+
-  geom_boxplot(data = GTEx_box_dat$GTEx_plot, aes(x = as.factor(patnum), y = relative_abundance, fill = cell_type), 
+  geom_boxplot(data = GTEx_box_dat$GTEx_plot,
+               aes(x = as.factor(patnum), y = relative_abundance, fill = cell_type), 
                inherit.aes = F, show.legend = T, outlier.size = 0.3)+
-  scale_x_discrete(breaks = unique(GTEx_box_dat$numpatkey$patnum), labels = unique(GTEx_box_dat$numpatkey$Tissue))+
+  scale_x_discrete(breaks = unique(GTEx_box_dat$numpatkey$patnum), 
+                   labels = unique(GTEx_box_dat$numpatkey$Tissue))+
   theme_bw(base_size = 10) +
-  scale_fill_manual(values=c("tomato","gold"), breaks = c("Blood Neutrophil","VAT Neutrophil"), name = "Neutrophil Type")+
+  scale_fill_manual(values=c("tomato","gold"),
+                    breaks = c("Blood Neutrophil","VAT Neutrophil"),
+                    labels = c("Blood Neutrophil", "VIN-type Neutrophil"),
+                    name = "Neutrophil Type")+
   xlab("Tissue")+
   ylab("Relative Abundance")+
   coord_flip()
@@ -101,17 +116,19 @@ E: TCGA COAD boxplot
 
 ```{r}
 load("prepared-data/TCGA_box_data.rda")
-ggplot()+
-  # geom_rect(data = TCGA_box_dat$numtissuekey, mapping = aes(xmin = ylow, xmax = yhigh, ymin = 0, ymax = 0.6, fill=type), inherit.aes = F,show.legend = F, alpha = 0.3)+
-  geom_boxplot(data = TCGA_box_dat$dat_plot, aes(x = as.factor(patnum), y = relative_abundance, fill = cell_type), inherit.aes = F, show.legend = T)+
-  scale_x_discrete(breaks = unique(TCGA_box_dat$numtissuekey$patnum), labels = unique(TCGA_box_dat$numtissuekey$Tissue))+
-  theme(axis.text.x = element_text(size=10, angle=0))+
-  theme_bw()+
-  scale_fill_manual(values=c("tomato","gold"), breaks = c("Blood Neutrophil","VAT Neutrophil"), name = "Neutrophil Type")+
-  xlab("")+
+TCGA_box_dat$dat_plot %>%
+  mutate(cell_type = gsub("VAT", "VIN-type", cell_type)) %>%
+  ggplot(aes(x = cell_type, y = relative_abundance, fill = cell_type))+
+  geom_boxplot(show.legend = F)+
+  scale_fill_manual(values=c("tomato","gold"), 
+                    breaks = c("Blood Neutrophil","VIN-type Neutrophil"),
+                    name = "Neutrophil Type")+
+  xlab("Colorectal Cancer\n(TCGA-COAD)")+
   ylab("Relative Abundance")+
-  coord_flip()
-ggsave("../../figures/COAD_VAT.png", height = 3, width = 4)
+  coord_flip() +
+  theme_bw(base_size = 8)
+ 
+ggsave("../../figures/COAD_VAT.png", height = 2, width = 3.5)
 
 ```
 
@@ -122,9 +139,14 @@ load("prepared-data/TCGA_surv_dat.rda")
 # ggsurvplot_facet(TCGA_surv_dat$surv_plot_Blo, TCGA_surv_dat$SURV_d, facet.by = "Tissue", scales = "free_x") +
 #   theme_bw()
 # ggsave("../../figures/COAD_surv_Blo.png", height = 3, width = 3)
-ggsurvplot_facet(TCGA_surv_dat$surv_plot_VAT, TCGA_surv_dat$SURV_d, facet.by = "Tissue", scales = "free_x") +
-  theme_bw()
-ggsave("../../figures/COAD_surv_VAT.png", height = 3, width = 3)
+ggsurvplot_facet(TCGA_surv_dat$surv_plot_VAT, TCGA_surv_dat$SURV_d,
+                 facet.by = "Tissue", scales = "free_x",
+                 legend.labs = c("High VIN-type Neutrophil Abundance",
+                                 "Low VIN-type Neutrophil Abundance")) +
+  theme_bw() 
+# scale_color_manual(labels = c("High VIN-type Neutrophil Abundance",
+#                               "Low VIN-type Neutrophil Abundance"))
+ggsave("../../figures/COAD_surv_VAT.png", height = 3, width = 4)
 
 ```
 
@@ -136,7 +158,7 @@ load("prepared-data/scrna-sig-score.rda")
 vlike <- 0.2
 tmpsplit <- scrna.sig.score %>%
   mutate(sig_score_2 = ifelse(sig_score > 1,1,sig_score),
-         fcode = ifelse(sig_score > vlike, "VAT like", "Blood like")) 
+         fcode = ifelse(sig_score > vlike, "VIN like", "Blood like")) 
 tmpsol <- scrna.sig.score %>%
   mutate(sig_score_2 = ifelse(sig_score > 1,1,sig_score),
          fcode = "All neutrophils") 
@@ -146,7 +168,7 @@ bind_rows(tmpsplit, tmpsol) %>%
   facet_wrap(vars(fcode)) +
   geom_point(aes(colour = sig_score_2), alpha = .5) +
   labs(x = "umap 1", y = "umap 2") +
-  scale_color_viridis(direction = -1, option = "A", name = "VAT Neutrophil Score") +
+  scale_color_viridis(direction = -1, option = "A", name = "VIN Neutrophil Score") +
   theme_bw()  +
   theme(text = element_text(size = 9),
         axis.text.x = element_text(angle = 45, hjust = 1))
