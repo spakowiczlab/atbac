@@ -27,6 +27,9 @@ accession.table <- read.csv("../../data/DESeq2/summarize-neutrgroup-sources.csv"
 
 ```{r}
 flextable(accession.table, cwidth = 2, cheight = 1.25)
+
+flextable(accession.table, cwidth = 2, cheight = 1.25) %>%
+save_as_docx(path = "../../tables/table-s2.docx")
 ```
 
 # Table S4
@@ -47,6 +50,10 @@ vat.accession <- as.data.frame(cbind(accession = c(vat.accession, "GSE71415"),
 ```{r}
 bind_rows(blood.accession, vat.accession) %>%
   flextable(cwidth = 1)
+
+bind_rows(blood.accession, vat.accession) %>%
+  flextable(cwidth = 1) %>%
+save_as_docx(path = "../../tables/table-s4.docx")
 ```
 
 # PCA zymo data
