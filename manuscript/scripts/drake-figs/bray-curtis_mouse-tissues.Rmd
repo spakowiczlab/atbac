@@ -18,15 +18,17 @@ library(eulerr)
 load("prepared-data/mouse-distances.rda")
 ```
 
-# Formatting
+# Test significance
 
+```{r}
 
+```
 
 # Bray-Curtis distance
 
 
 ```{r}
-bc.plot %>%
+mousedist$bc.plot %>%
   ggplot(aes(x = tissue, y = distance)) +
   geom_boxplot() +
   theme_bw()

@@ -16,13 +16,6 @@ library(dplyr)
 library(ggforce)
 ```
 
-
-# Drake targets
-```{r}
-loadd(GenePath.meta)
-loadd(pca.bldvat.exprs)
-```
-
 # Panel A: PCA results
 
 ```{r}
