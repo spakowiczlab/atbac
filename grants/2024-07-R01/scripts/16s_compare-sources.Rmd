@@ -1,0 +1,126 @@
+---
+title: "Check 16s stool vat overlap"
+author: "Rebecca Hoyd"
+date: "7/3/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(openxlsx)
+```
+
+```{r}
+tax <- read.table("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/zr13065.16S_230916.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_tax_assignments.txt", stringsAsFactors = F, header = F, sep = "\t")
+seqtab <- read.csv("/fs/ess/PAS1695/projects/atbac/data/zymo/onedrive_2023-09-27/zr13065.16S_230916.zymo/00...AllSamples.Bac16Sv34/DADA2_ASV_Distribution/ASV_Abundance_Table.csv")
+```
+
+# Format tables
+
+```{r}
+tax.form <- tax %>%
+  select(V1, V2) %>%
+  separate(V2, into = c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = ";", remove = F) %>%
+  mutate(phylum = ifelse(phylum == "p__NA", paste0("p__unclassified-", kingdom), phylum),
+         class = ifelse(class == "c__NA", paste0("c__unclassified-", gsub("p__unclassified-", "", phylum)), class),
+         order = ifelse(order == "o__NA", paste0("o__unclassified-", gsub("c__unclassified-", "", class)), order),
+         family = ifelse(family == "f__NA", paste0("f__unclassified-", gsub("o__unclassified-", "", order)), family),
+         genus = ifelse(genus == "g__NA", paste0("g__unclassified-", gsub("f__unclassified-", "", family)), genus),
+         species = ifelse(species != "s__NA", 
+                          paste0("s__", gsub("g__", "", genus),"-", gsub("s__", "", species)),
+                          # species
+                          paste0("s__unclassified-", gsub("g__unclassified-", "", genus))
+         )
+  )
+
+
+seqtab.long <- seqtab %>%
+  pivot_longer(-seqs, names_to = "V1", values_to = "counts") %>%
+  mutate(samptot = sum(counts), .by = seqs) %>%
+  mutate(relabun = counts/samptot) %>%
+  left_join(tax.form) %>%
+  drop_na() %>%
+  select(-samptot, -V1, -counts) %>%
+  rename("sample" = "seqs")
+
+```
+
+```{r sample info}
+metadata <- seqtab.long %>%
+  select(sample) %>%
+  distinct() %>%
+  # Pre-format the combined infor
+  mutate(sample.form = gsub("Week\\.", "Week", 
+                            gsub("VATO", "VAT.O", 
+                                 gsub("\\.$","",
+                                      gsub("\\.\\.",".", 
+                                           gsub("long\\.","",
+                                                gsub("Ly6G\\.","",
+                                                     gsub("End\\.","",
+                                                          gsub("Pellet\\.","",
+                                                               gsub("T2..T6821","T6821(T2)",sample))))))))),
+         sample.form = ifelse(grepl("Pellet", sample), paste0("Pellet.", sample.form), sample.form)
+  ) %>%
+  separate(sample.form,remove = F,
+           into = c("tissue", "bmi.status", "space", "timepoint", "diet", "mouse", "patient", "patient.sex"), sep = "\\.") %>%
+  # Fix pellet issues
+  mutate(patient.sex = ifelse(tissue == "Pellet", patient, patient.sex),
+         patient = ifelse(tissue == "Pellet",mouse, patient),
+         mouse = ifelse(tissue == "Pellet", NA, mouse)) %>%
+  # Fix obese, lean gavage
+  mutate(gavage = grepl("slurry", sample),
+         bmi.status = ifelse(gavage == T, tissue, bmi.status),
+         tissue = ifelse(gavage == F, tissue, NA),
+         patient.sex = ifelse(gavage == T, diet, patient.sex),
+         patient = ifelse(gavage ==T, timepoint, patient),
+         diet = ifelse(gavage == F, diet, NA),
+         timepoint = ifelse(gavage == F, timepoint, NA)) %>%
+  # Fix saline gavages
+  mutate(gavage = gavage == T | tissue == "Saline",
+         bmi.status = gsub("\\d", "Saline", bmi.status),
+         tissue = ifelse(tissue == "Saline", NA, tissue)) %>%
+  # Misc indicators
+  mutate(Ly6G = grepl("Ly6G", sample),
+         timepoint = gsub("Week1s", "Week1", timepoint),
+         long.exp = grepl("long", sample)) %>%
+# Fix patient IDs with infor from Dharti
+  mutate(patient = ifelse(long.exp == T & bmi.status == "Obese", "T6821", patient),
+         patient= ifelse(long.exp == F & bmi.status == "Obese" & tissue != "Pellet" & is.na(patient), "T6824", patient))
+```
+
+# Function to get overlaps
+
+```{r}
+# patid <- "T6821"
+
+checkoverlap <- function(patid){
+  select.samps <- metadata %>%
+    filter(patient == patid & 
+             ((tissue == "VAT" & timepoint == "Week1" & Ly6G == F & diet == "HFD") | 
+                gavage == T))
+  
+  tmp.gavage <- seqtab.long %>%
+    filter(sample == select.samps$sample[grep(TRUE, select.samps$gavage)]) %>%
+    filter(relabun != 0)
+  tmp.gavage.mics <- unique(tmp.gavage$V2)
+  
+  tmp.vat <- seqtab.long %>%
+    filter(sample %in% select.samps$sample[grep(FALSE, select.samps$gavage)]) %>%
+    filter(relabun != 0) %>%
+    group_by(V2) %>%
+    tally() %>%
+    filter(V2 %in% tmp.gavage.mics)
+  # tmp.vat.mics <- unique(tmp.vat$V2)
+  return(tmp.vat)
+}
+```
+
+```{r}
+patients <- unique(metadata$patient)[-c(1, 7)] # Exludes NA patients and duplicate gavage
+
+overlaps <- lapply(patients, checkoverlap)
+names(overlaps) <- patients
+write.xlsx(overlaps, "../data/16s-taxa-overlaps.xlsx")
+```

@@ -1,0 +1,188 @@
+---
+title: "Adjust manuscript figures"
+author: "Rebecca Hoyd"
+date: "7/2/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(viridis)
+library(ggrepel)
+```
+
+# 3B (abundance boxplot)
+
+```{r}
+load("../data/mouse_tissuebox.rda")
+
+boxdat <- zymo.tissuedat %>%
+  filter(source == "tissue" & tissue_type == "VAT") %>%
+  mutate(dietdummy = paste0(Gavage, " gavage/", Diet)) 
+
+bardat <- zymo.tissuedat %>%
+  filter(source == "tissue" & tissue_type == "VAT") %>%
+  mutate(dietdummy = paste0(Gavage, " gavage/", Diet)) %>%
+  group_by(dietdummy) %>%
+  summarise(mean.mic = mean(log(`genome_copies_per_ul*`)),
+            sd = sqrt(var(log(`genome_copies_per_ul*`)))) %>%
+  mutate(ci.low = mean.mic - sd,
+         ci.high = mean.mic + sd)
+```
+
+```{r}
+bardat %>%
+  ggplot(aes(x = fct_relevel(dietdummy, "Saline gavage/HFD", "Lean gavage/HFD", "Obese gavage/HFD", "Obese gavage/Chow"), 
+             y = mean.mic)) +
+  geom_col(aes(fill = dietdummy), show.legend = F) +
+  # geom_point(size = 2,
+  #            ) +
+  geom_errorbar(inherit.aes = F, aes(x = dietdummy, ymin = ci.low, ymax = ci.high), width = .5) +
+  scale_fill_manual(breaks = c("Saline gavage/HFD", "Lean gavage/HFD", "Obese gavage/HFD", "Obese gavage/Chow"),
+                    values = c("#FEFE7D", "#A76686","#94BBC6", "grey70"),
+                    aesthetics = c( "fill"),
+                    name = "") +
+  labs(x = "",
+       y = "Absolute microbial abundance") +
+  guides(shape = guide_legend(override.aes = list(fill = "black")),
+         fill = guide_legend(override.aes = list(shape = NA)),
+         color = F) +
+  theme_bw(base_size = 9) +
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+ggsave("../figures/zymo_abs-abundance_tissues.png",
+     height = 2.5, width = 3)
+```
+
+```{r}
+boxdat %>%
+  ggplot(aes(x = fct_relevel(dietdummy, "Saline gavage/HFD", "Lean gavage/HFD", "Obese gavage/HFD", "Obese gavage/Chow"), 
+             y = log(`genome_copies_per_ul*`))) +
+  geom_boxplot(aes(fill = dietdummy)) +
+  # geom_point(size = 2,
+  #            ) +
+  scale_fill_manual(breaks = c("Saline gavage/HFD", "Lean gavage/HFD", "Obese gavage/HFD", "Obese gavage/Chow"),
+                    values = c("#FEFE7D", "#A76686","#94BBC6", "grey70"),
+                    aesthetics = c( "fill"),
+                    name = "") +
+  labs(x = "",
+       y = "Absolute microbial abundance") +
+  guides(shape = guide_legend(override.aes = list(fill = "black")),
+         fill = guide_legend(override.aes = list(shape = NA)),
+         color = F) +
+  theme_bw(base_size = 9) +
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+ggsave("../figures/zymo_abs-abundance_tissues_legend.png",
+     height = 2.5, width = 3)
+```
+
+# 3G (Volcanic range)
+
+```{r}
+load("../data/mouse_vulc-range.rda")
+
+patkey <- vulcrange$patkey
+patkey$patnum <- c(1,1.65,2.3)
+rangedat.form <- vulcrange$rangedat.form %>%
+  select(-patnum) %>%
+  left_join(patkey) %>%
+  mutate(patval = ifelse(direction == "Obese",
+                         patnum+nudgeval,
+                         patnum-nudgeval),
+         pointlab = ifelse(patient == "T6821" & pointlab == "Pseudomonas stutzeri", "Pseudomonas stutzeri", NA))
+
+
+rangedat.form %>%
+  ggplot(aes(x = patval, y = -log(p.value), shape =  protval)) +
+  geom_point(aes(size = sizeval, fill =direction)) +
+  # geom_text_repel(aes(label = pointlab), size = 2) +
+  scale_fill_manual(name = "",
+                    labels = c("Depleted\nin Obese", "Enriched\nin Obese"),
+                    values = c("grey60", "red")) +
+  scale_x_continuous(breaks = patkey$patnum, 
+                     # labels = patkey$patient
+                     labels = c("Patient A", "Patient B", "Patient C")
+                     ) +
+  scale_shape_manual(values = 21:22,
+                     name = "",
+                     breaks = c("Proteobacteria", "Not Proteobacteria"),
+                     labels = c("Proteobacteria", "Others")) +
+  scale_size_manual(breaks = c("a", "b", "c"), 
+                    values = c(1,2,3), 
+                    labels = c("<1", "<2", ">=2"),
+                    name = "FoldChange") +
+  labs(x = "Fecal gavage") +
+  guides(fill = guide_legend(override.aes=list(shape=21))) +
+  theme_bw() +
+  theme(text = element_text(size = 8))
+ggsave("../figures/volcanic-range_mouseexp_legend.png", height = 3.3, width = 3.5)
+
+rangedat.form %>%
+  ggplot(aes(x = patval, y = -log(p.value), shape = protval)) +
+  # geom_rect(inherit.aes = F,xmin = .8, xmax = 1, ymin = 0, ymax = 4, fill = "grey80") +
+  geom_point(aes(size = sizeval, fill =direction), show.legend = F) +
+  # geom_text_repel(aes(label = pointlab), size = 2, show.legend = F) +
+  scale_fill_manual(name = "",
+                    labels = c("Depleted\nin Obese", "Enriched\nin Obese"),
+                    values = c("grey60", "red")) +
+  scale_x_continuous(breaks = patkey$patnum, 
+                     # labels = patkey$patient
+                     labels = c("Patient A", "Patient B", "Patient C")) +
+  scale_shape_manual(values = 21:22,
+                     name = "",
+                     breaks = c("Proteobacteria", "Not Proteobacteria"),
+                     labels = c("Proteobacteria", "Others")) +
+  scale_size_manual(breaks = c("a", "b", "c"), 
+                    values = c(1,2,3), 
+                    labels = c("<1", "<2", ">=2"),
+                    name = "FoldChange") +
+  # geom_hline(yintercept = -log(0.05)) +
+  labs(x = "Fecal gavage") +
+  theme_bw() +
+  theme(text = element_text(size = 8))
+ggsave("../figures/volcanic-range_mouseexp.png", height = 3, width = 3)
+# ggsave("../figures/volcanic-range_mouseexp.svg", height = 3, width = 3)
+```
+
+# 6G (scRNAseq)
+
+```{r}
+load("../data/scrna-sig-score.rda")
+
+vlike <- 0.2
+tmpsplit <- scrna.sig.score %>%
+  mutate(sig_score_2 = ifelse(sig_score > 1,1,sig_score),
+         fcode = ifelse(sig_score > vlike, "VAT like", "Blood like")) 
+tmpsol <- scrna.sig.score %>%
+  mutate(sig_score_2 = ifelse(sig_score > 1,1,sig_score),
+         fcode = "All neutrophils") 
+
+bind_rows(tmpsplit, tmpsol) %>%
+  ggplot(aes(x = umap_1, y = umap_2)) + 
+  facet_wrap(vars(fcode)) +
+  geom_point(aes(colour = sig_score_2), alpha = .5, show.legend = F) +
+  labs(x = "UMAP 1", y = "UMAP 2") +
+  scale_color_viridis(direction = -1, name = "VAT Isolated\nNeutrophil Score") +
+  theme_bw()  +
+  theme(text = element_text(size = 8),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("../figures/umap_facet-vatlike.png", height = 4, width = 6.5)
+
+bind_rows(tmpsplit, tmpsol) %>%
+  ggplot(aes(x = umap_1, y = umap_2)) + 
+  facet_wrap(vars(fcode)) +
+  geom_point(aes(colour = sig_score_2), alpha = .5) +
+  labs(x = "UMAP 1", y = "UMAP 2") +
+  scale_color_viridis(direction = -1, name = "VAT Isolated\nNeutrophil Score") +
+  theme_bw()  +
+  theme(text = element_text(size = 8),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("../figures/umap_facet-vatlike_legend.png", height = 4, width = 6.5)
+```
+
+
