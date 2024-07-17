@@ -1,0 +1,23 @@
+---
+title: "Power analysis"
+author: "Rebecca Hoyd"
+date: "7/17/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(pwrss)
+```
+
+```{r}
+# pwrss.chisq.gofit(p0 = c(.5,.5),
+#                   p1 = c(.1,.9),
+#                   alpha = 0.05,
+#                   power = 0.8)
+
+
+pwrss.chisq.gofit(w = 0.3, df = 1, alpha = 0.05, power = 0.80)
+```
