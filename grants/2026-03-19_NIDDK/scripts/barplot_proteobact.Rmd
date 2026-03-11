@@ -1,0 +1,113 @@
+---
+title: "Adjust manuscript figures"
+author: "Rebecca Hoyd"
+date: "7/2/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(viridis)
+library(ggrepel)
+library(utils)
+```
+
+
+# 3G (Volcanic range)
+
+```{r}
+load("../data/mouse_vulc-range.rda")
+
+patkey <- vulcrange$patkey
+patkey$patnum <- c(1,1.65,2.3)
+rangedat.form <- vulcrange$rangedat.form %>%
+  select(-patnum) %>%
+  left_join(patkey) %>%
+  mutate(patval = ifelse(direction == "Obese",
+                         patnum+nudgeval,
+                         patnum-nudgeval),
+         pointlab = ifelse(patient == "T6821" & pointlab == "Pseudomonas stutzeri", "Pseudomonas stutzeri", NA))
+
+
+rangedat.form %>%
+  ggplot(aes(x = patval, y = -log(p.value), shape =  protval)) +
+  geom_point(aes(size = sizeval, fill =direction)) +
+  # geom_text_repel(aes(label = pointlab), size = 2) +
+  scale_fill_manual(name = "",
+                    labels = c("Depleted\nin Obese", "Enriched\nin Obese"),
+                    values = c("grey60", "red")) +
+  scale_x_continuous(breaks = patkey$patnum, 
+                     # labels = patkey$patient
+                     labels = c("Patient A", "Patient B", "Patient C")
+                     ) +
+  scale_shape_manual(values = 21:22,
+                     name = "",
+                     breaks = c("Proteobacteria", "Not Proteobacteria"),
+                     labels = c("Proteobacteria", "Others")) +
+  scale_size_manual(breaks = c("a", "b", "c"), 
+                    values = c(1,2,3), 
+                    labels = c("<1", "<2", ">=2"),
+                    name = "FoldChange") +
+  labs(x = "Fecal gavage") +
+  guides(fill = guide_legend(override.aes=list(shape=21))) +
+  theme_bw() +
+  theme(text = element_text(size = 8))
+ggsave("../figures/volcanic-range_mouseexp_legend.png", height = 3.3, width = 3.5)
+ggsave("../figures/volcanic-range_mouseexp_legend.pdf", height = 3.3, width = 3.5)
+
+rangedat.form %>%
+  ggplot(aes(x = patval, y = -log(p.value), shape = protval)) +
+  # geom_rect(inherit.aes = F,xmin = .8, xmax = 1, ymin = 0, ymax = 4, fill = "grey80") +
+  geom_point(aes(size = sizeval, fill =direction), show.legend = F) +
+  # geom_text_repel(aes(label = pointlab), size = 2, show.legend = F) +
+  scale_fill_manual(name = "",
+                    labels = c("Depleted\nin Obese", "Enriched\nin Obese"),
+                    values = c("grey60", "red")) +
+  scale_x_continuous(breaks = patkey$patnum, 
+                     # labels = patkey$patient
+                     labels = c("Patient A", "Patient B", "Patient C")) +
+  scale_shape_manual(values = 21:22,
+                     name = "",
+                     breaks = c("Proteobacteria", "Not Proteobacteria"),
+                     labels = c("Proteobacteria", "Others")) +
+  scale_size_manual(breaks = c("a", "b", "c"), 
+                    values = c(1,2,3), 
+                    labels = c("<1", "<2", ">=2"),
+                    name = "FoldChange") +
+  # geom_hline(yintercept = -log(0.05)) +
+  labs(x = "Fecal gavage") +
+  theme_bw() +
+  theme(text = element_text(size = 8))
+ggsave("../figures/volcanic-range_mouseexp.png", height = 3, width = 3)
+ggsave("../figures/volcanic-range_mouseexp.pdf", height = 3, width = 3)
+```
+
+```{r}
+patkey.bar <- vulcrange$patkey %>%
+  mutate(patlab = c("Experiment 1", "Experiment 2", "Experiment 3"))
+
+rangebar.form <- vulcrange$rangedat.form %>%
+  filter(p.value < 0.1) %>%
+  # left_join(patlab) %>%
+  group_by(patnum, direction, protval) %>%
+  tally() %>%
+  left_join(patkey.bar)
+
+rangebar.form %>%
+  ggplot(aes(x = direction,y = n, fill =protval)) +
+  facet_wrap(vars(patlab), ncol = 1) +
+  geom_col(position = "identity") +
+  coord_flip() +
+  labs(x = "Number of significant taxa", y = "") +
+  scale_fill_viridis_d(name = "Phylum") +
+  theme_classic()
+
+ggsave("../figures/bar_proteo_mouseexp.png", height = 3, width = 3)
+ggsave("../figures/bar_proteo_mouseexp.pdf", height = 3, width = 3)
+```
+
+
+
+
