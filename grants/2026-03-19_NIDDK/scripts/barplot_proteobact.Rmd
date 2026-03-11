@@ -89,23 +89,41 @@ patkey.bar <- vulcrange$patkey %>%
   mutate(patlab = c("Experiment 1", "Experiment 2", "Experiment 3"))
 
 rangebar.form <- vulcrange$rangedat.form %>%
-  filter(p.value < 0.1) %>%
+  filter(p.value < 0.2) %>%
   # left_join(patlab) %>%
   group_by(patnum, direction, protval) %>%
+  mutate(protval = gsub(" ", "\n", protval)) %>%
   tally() %>%
   left_join(patkey.bar)
 
 rangebar.form %>%
   ggplot(aes(x = direction,y = n, fill =protval)) +
   facet_wrap(vars(patlab), ncol = 1) +
-  geom_col(position = "identity") +
+  geom_col(position = "identity", show.legend = FALSE) +
   coord_flip() +
-  labs(x = "Number of significant taxa", y = "") +
-  scale_fill_viridis_d(name = "Phylum") +
-  theme_classic()
+  labs(x = "Number of interesting taxa", y = "") +
+  scale_fill_viridis_d(name = "Phylum", 
+                       direction = -1) +
+  theme_classic() 
 
 ggsave("../figures/bar_proteo_mouseexp.png", height = 3, width = 3)
 ggsave("../figures/bar_proteo_mouseexp.pdf", height = 3, width = 3)
+
+
+
+rangebar.form %>%
+  ggplot(aes(x = direction,y = n, fill =protval)) +
+  facet_wrap(vars(patlab), ncol = 1) +
+  geom_col(position = "identity") +
+  coord_flip() +
+  labs(x = "Number of interesting taxa", y = "") +
+  scale_fill_viridis_d(name = "Phylum", 
+                       direction = -1) +
+  theme_classic() 
+  # theme(legend.position = "top")
+
+ggsave("../figures/bar_proteo_mouseexp_legend.png", height = 3, width = 3)
+ggsave("../figures/bar_proteo_mouseexp_legend.pdf", height = 3, width = 3)
 ```
 
 
