@@ -126,6 +126,33 @@ ggsave("../figures/bar_proteo_mouseexp_legend.png", height = 3, width = 3)
 ggsave("../figures/bar_proteo_mouseexp_legend.pdf", height = 3, width = 3)
 ```
 
+```{r}
+rangebar.form %>%
+  ggplot(aes(x = n, y = patlab)) +
+  geom_col(#,
+           aes(fill = direction)) +
+  labs(x = "Number of interesting taxa", y = "") +
+  scale_fill_viridis_d(name = "Phylum", 
+                       direction = -1) +
+  theme_classic() 
+```
 
+```{r}
+rangebar.form %>%
+  # Shortn "Experiment" to "Exp" for better fit on the plot
+  mutate(Experiment = gsub("Experiment", "Exp", patlab)) %>%
+  ggplot(aes(x = direction, y = n, fill = protval)) +
+  facet_wrap(vars(Experiment)) +
+  geom_col(position = "identity") +
+  # coord_flip() +
+  labs(y = "Number of Enriched Microbes in VAT", x = "Gavaged Microbiome Source, Human") +
+  scale_fill_viridis_d(name = "Phylum", 
+                       direction = -1) +
+  theme_bw(base_size = 8) 
+  # theme(legend.position = "top")
+
+ggsave("../figures/bar_proteo_mouseexp_legend.png", height = 2.5, width = 4)
+ggsave("../figures/bar_proteo_mouseexp_legend.pdf", height = 2.5, width = 4)
+```
 
 
